@@ -65,9 +65,9 @@ void BuildRotationMatrix(float x_angle, float y_angle, float z_angle, float *res
   float rad_z_angle = z_angle * DEG_TO_RAD;
   
   // Build rotation matrices 
-  float Rx[3][3] = { {1,0,0}, { 0, cos(rad_x_angle), -sin(rad_x_angle) }, {0, sin(rad_x_angle), cos(rad_x_angle)} };
-  float Ry[3][3] = { {cos(rad_y_angle),0,sin(rad_y_angle)}, {0,1,0}, {-sin(rad_y_angle),0,cos(rad_y_angle)}};
-  float Rz[3][3] = { {cos(rad_z_angle), -sin(rad_z_angle), 0}, {sin(rad_z_angle), cos(rad_z_angle),0}, {0,0,1}};
+  float Rx[3][3] = { {1,0,0}, { 0, cosf(rad_x_angle), -sinf(rad_x_angle) }, {0, sinf(rad_x_angle), cosf(rad_x_angle)} };
+  float Ry[3][3] = { {cosf(rad_y_angle),0,sinf(rad_y_angle)}, {0,1,0}, {-sinf(rad_y_angle),0,cosf(rad_y_angle)}};
+  float Rz[3][3] = { {cosf(rad_z_angle), -sinf(rad_z_angle), 0}, {sinf(rad_z_angle), cosf(rad_z_angle),0}, {0,0,1}};
   // Rxy holds the intermediate result for final Rxyz solution
   float Rxy[3][3] = {{0,0,0},{0,0,0},{0,0,0}};
   // Calculate Rxy
@@ -144,9 +144,10 @@ float* GetTransform (byte LegNr)
   }
   return NULL;
 }
+
 short AngleToPWM(float angle)
 {
-    return (int)((((angle + 90) / 180.0) * 1800) + 600);
+    return (short)((((angle + 90) / 180.0) * 1800) + 600);
 }
 
 LegAngles LegIK(float* body_delta_pt, float FeetPosX, float FeetPosY, float FeetPosZ, byte LegNr)
@@ -170,12 +171,12 @@ LegAngles LegIK(float* body_delta_pt, float FeetPosX, float FeetPosY, float Feet
   float L1 = foot_x - body_x;
   float Zoffset = body_z - foot_z;
   float L = sqrt( Zoffset * Zoffset + (L1 - CoxaLength)*(L1 - CoxaLength));
-  float A1 = acos(Zoffset / L);
-  float A2 = acos( (L*L + FemurLength*FemurLength - TibiaLength*TibiaLength) / (2*L*FemurLength) );
+  float A1 = acosf(Zoffset / L);
+  float A2 = acosf( (L*L + FemurLength*FemurLength - TibiaLength*TibiaLength) / (2*L*FemurLength) );
   float A = (A1 + A2) * RAD_TO_DEG;
-  float B = acos( (FemurLength*FemurLength + TibiaLength*TibiaLength - L*L) / (2*FemurLength*TibiaLength) ) * RAD_TO_DEG;
+  float B = acosf( (FemurLength*FemurLength + TibiaLength*TibiaLength - L*L) / (2*FemurLength*TibiaLength) ) * RAD_TO_DEG;
 
-  result.CoxaAngle = atan2( (foot_y - body_y) , (foot_x - body_x) ) * RAD_TO_DEG;
+  result.CoxaAngle = atan2f( (foot_y - body_y) , (foot_x - body_x) ) * RAD_TO_DEG;
   result.FemurAngle = A - 90.0F;
   result.TibiaAngle = 90.0F - B;
   return result;
@@ -225,9 +226,9 @@ void UpdateLegs()
     float body_delta_pt[3][1] = { { body_delta[0][i] }, { body_delta[1][i] }, {body_delta[2][i]} };
     angles[i] = LegIK((float*)body_delta_pt,Gait[i].x,Gait[i].y,Gait[i].z,i);
   }
-  
-  USBSerial.print("Time: ");
   unsigned long dtime = micros() - time;
+  USBSerial.print("Time: ");
+  
   USBSerial.println(dtime);
   
   setLegAngles(angles,50);
