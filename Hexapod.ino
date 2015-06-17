@@ -105,41 +105,41 @@ void BuildTransforms()
                       {0,0,0}, 
                       {0,0,0}};
   // These rotation matrices are to convert from the leg coordinate system to the body coordinate system.                    
-  BuildRotationMatrix(0,0,-60,(float*)temp);
+  BuildRotationMatrix(0,0,60,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) RF_leg_to_body);
   
   BuildRotationMatrix(0,0,0,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) RM_leg_to_body);
   
-  BuildRotationMatrix(0,0,-300,(float*)temp);
+  BuildRotationMatrix(0,0,300,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) RR_leg_to_body);
   
-  BuildRotationMatrix(0,0,-120,(float*)temp);
+  BuildRotationMatrix(0,0,120,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) LF_leg_to_body);
   
-  BuildRotationMatrix(0,0,-180, (float*)temp);
+  BuildRotationMatrix(0,0,180, (float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) LM_leg_to_body);
   
-  BuildRotationMatrix(0,0,-240,(float*)temp);
+  BuildRotationMatrix(0,0,240,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) LR_leg_to_body);
   
   
-  BuildRotationMatrix(0,0,60,(float*)temp);
+  BuildRotationMatrix(0,0,-60,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) RF_body_to_leg);
   
   BuildRotationMatrix(0,0,0,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) RM_body_to_leg);
   
-  BuildRotationMatrix(0,0,300,(float*)temp);
+  BuildRotationMatrix(0,0,-300,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) RR_body_to_leg);
   
-  BuildRotationMatrix(0,0,120,(float*)temp);
+  BuildRotationMatrix(0,0,-120,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) LF_body_to_leg);
   
-  BuildRotationMatrix(0,0,180, (float*)temp);
+  BuildRotationMatrix(0,0,-180, (float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) LM_body_to_leg);
   
-  BuildRotationMatrix(0,0,240,(float*)temp);
+  BuildRotationMatrix(0,0,-240,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) LR_body_to_leg);
 }
 
