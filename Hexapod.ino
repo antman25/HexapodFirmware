@@ -106,41 +106,79 @@ void BuildTransforms()
                       {0,0,0}};
   // These rotation matrices are to convert from the leg coordinate system to the body coordinate system.                    
   BuildRotationMatrix(0,0,-60,(float*)temp);
-  MatrixTranspose((float*) temp,3,3,(float*) RF_transform);
+  MatrixTranspose((float*) temp,3,3,(float*) RF_leg_to_body);
   
   BuildRotationMatrix(0,0,0,(float*)temp);
-  MatrixTranspose((float*) temp,3,3,(float*) RM_transform);
+  MatrixTranspose((float*) temp,3,3,(float*) RM_leg_to_body);
   
   BuildRotationMatrix(0,0,-300,(float*)temp);
-  MatrixTranspose((float*) temp,3,3,(float*) RR_transform);
+  MatrixTranspose((float*) temp,3,3,(float*) RR_leg_to_body);
   
   BuildRotationMatrix(0,0,-120,(float*)temp);
-  MatrixTranspose((float*) temp,3,3,(float*) LF_transform);
+  MatrixTranspose((float*) temp,3,3,(float*) LF_leg_to_body);
   
   BuildRotationMatrix(0,0,-180, (float*)temp);
-  MatrixTranspose((float*) temp,3,3,(float*) LM_transform);
+  MatrixTranspose((float*) temp,3,3,(float*) LM_leg_to_body);
   
   BuildRotationMatrix(0,0,-240,(float*)temp);
-  MatrixTranspose((float*) temp,3,3,(float*) LR_transform);
+  MatrixTranspose((float*) temp,3,3,(float*) LR_leg_to_body);
+  
+  
+  BuildRotationMatrix(0,0,60,(float*)temp);
+  MatrixTranspose((float*) temp,3,3,(float*) RF_body_to_leg);
+  
+  BuildRotationMatrix(0,0,0,(float*)temp);
+  MatrixTranspose((float*) temp,3,3,(float*) RM_body_to_leg);
+  
+  BuildRotationMatrix(0,0,300,(float*)temp);
+  MatrixTranspose((float*) temp,3,3,(float*) RR_body_to_leg);
+  
+  BuildRotationMatrix(0,0,120,(float*)temp);
+  MatrixTranspose((float*) temp,3,3,(float*) LF_body_to_leg);
+  
+  BuildRotationMatrix(0,0,180, (float*)temp);
+  MatrixTranspose((float*) temp,3,3,(float*) LM_body_to_leg);
+  
+  BuildRotationMatrix(0,0,240,(float*)temp);
+  MatrixTranspose((float*) temp,3,3,(float*) LR_body_to_leg);
 }
 
-float* GetTransform (byte LegNr)
+float* GetLegToBodyTransform (byte LegNr)
 {
   switch (LegNr)
   {
-    case 0:
-      return (float*)RF_transform;
-    case 1:
-      return (float*)RM_transform;
-    case 2:
-      return (float*)RR_transform;
-    case 3:
-      return (float*)LF_transform;
-    case 4:
-      return (float*)LM_transform;
-    case 5:
-      return (float*)LR_transform;
-      
+    case RF:
+      return (float*)RF_leg_to_body;
+    case RM:
+      return (float*)RM_leg_to_body;
+    case RR:
+      return (float*)RR_leg_to_body;
+    case LF:
+      return (float*)LF_leg_to_body;
+    case LM:
+      return (float*)LM_leg_to_body;
+    case LR:
+      return (float*)LR_leg_to_body;
+  }
+  return NULL;
+}
+
+float* GetBodyToLegTransform (byte LegNr)
+{
+  switch (LegNr)
+  {
+    case RF:
+      return (float*)RF_body_to_leg;
+    case RM:
+      return (float*)RM_body_to_leg;
+    case RR:
+      return (float*)RR_body_to_leg;
+    case LF:
+      return (float*)LF_body_to_leg;
+    case LM:
+      return (float*)LM_body_to_leg;
+    case LR:
+      return (float*)LR_body_to_leg;
   }
   return NULL;
 }
@@ -157,26 +195,29 @@ LegAngles LegIK(float* body_delta_pt, float FeetPosX, float FeetPosY, float Feet
   float body_transform[3][1] = { {0}, {0}, {0} };
   float foot_transform[3][1] = { {0}, {0}, {0} };
   
-  MatrixMultiply(GetTransform(LegNr),body_delta_pt,3,3,1,(float*)body_transform);
-  MatrixMultiply(GetTransform(LegNr),(float*)foot_vector,3,3,1,(float*)foot_transform);
+  MatrixMultiply(GetLegToBodyTransform(LegNr),body_delta_pt,3,3,1,(float*)body_transform);
+  MatrixMultiply(GetBodyToLegTransform(LegNr),(float*)foot_vector,3,3,1,(float*)foot_transform);
   
-  float foot_x = (CoxaLength + FemurLength) + foot_transform[0][0];
-  float foot_y = foot_transform[1][0];  
-  float foot_z = -TibiaLength + foot_transform[2][0];
   
   float body_x = body_transform[0][0];  
   float body_y = body_transform[1][0];  
   float body_z = body_transform[2][0];
+  
+  float foot_x = (CoxaLength + FemurLength) + foot_transform[0][0] - body_x;
+  float foot_y = foot_transform[1][0] - body_y;  
+  float foot_z = TibiaLength + foot_transform[2][0] - body_z;
+  
+
  
-  float L1 = foot_x - body_x;
-  float Zoffset = body_z - foot_z;
-  float L = sqrt( Zoffset * Zoffset + (L1 - CoxaLength)*(L1 - CoxaLength));
-  float A1 = acosf(Zoffset / L);
+  //float L1 = foot_x - body_x;
+  //float Zoffset = body_z - foot_z;
+  float L = sqrt( foot_z * foot_z + (foot_x - CoxaLength)*(foot_x - CoxaLength));
+  float A1 = acosf(foot_z / L);
   float A2 = acosf( (L*L + FemurLength*FemurLength - TibiaLength*TibiaLength) / (2*L*FemurLength) );
   float A = (A1 + A2) * RAD_TO_DEG;
   float B = acosf( (FemurLength*FemurLength + TibiaLength*TibiaLength - L*L) / (2*FemurLength*TibiaLength) ) * RAD_TO_DEG;
 
-  result.CoxaAngle = atan2f( (foot_y - body_y) , (foot_x - body_x) ) * RAD_TO_DEG;
+  result.CoxaAngle = atan2f( foot_y , foot_x ) * RAD_TO_DEG;
   result.FemurAngle = A - 90.0F;
   result.TibiaAngle = 90.0F - B;
   return result;
@@ -215,7 +256,7 @@ void UpdateLegs()
   float body_pts[3][6] = {{0,0,0,0,0,0},{0,0,0,0,0,0},{0,0,0,0,0,0}};
   float body_delta[3][6] = {{0,0,0,0,0,0},{0,0,0,0,0,0},{0,0,0,0,0,0}};
   
-  unsigned long time = micros();
+  //unsigned long time = micros();
   RotateTranslate((float*)body_init,bRot.x,bRot.y,bRot.z,bTrans.x,bTrans.y,bTrans.z, (float*)body_pts);
 
   MatrixSubtract((float*)body_pts, (float*)body_init,3,6,(float*)body_delta);
@@ -226,12 +267,12 @@ void UpdateLegs()
     float body_delta_pt[3][1] = { { body_delta[0][i] }, { body_delta[1][i] }, {body_delta[2][i]} };
     angles[i] = LegIK((float*)body_delta_pt,Gait[i].x,Gait[i].y,Gait[i].z,i);
   }
-  unsigned long dtime = micros() - time;
-  USBSerial.print("Time: ");
+  //unsigned long dtime = micros() - time;
+  //USBSerial.print("Time: ");
   
-  USBSerial.println(dtime);
+  //USBSerial.println(dtime);
   
-  setLegAngles(angles,50);
+  setLegAngles(angles,300);
 }
 
 void setLegAngles(LegAngles *angles, word wMoveTime)
@@ -242,16 +283,27 @@ void setLegAngles(LegAngles *angles, word wMoveTime)
   
   for (int i = 0;i < 6;i++)
   {
-    wCoxaSSCV = AngleToPWM(angles[i].CoxaAngle);
+    USBSerial.print("Leg: ");
+    USBSerial.print(i);
+    USBSerial.print("  ");
+    USBSerial.print(angles[i].CoxaAngle);
+    USBSerial.print("  ");
+    USBSerial.print(angles[i].FemurAngle);
+    USBSerial.print("  ");
+    USBSerial.println(angles[i].TibiaAngle);
+    
+    
     if (i < 3)
     {
+      wCoxaSSCV = AngleToPWM(angles[i].CoxaAngle);
       wFemurSSCV = AngleToPWM(angles[i].FemurAngle);
-      wTibiaSSCV = AngleToPWM(angles[i].TibiaAngle);
+      wTibiaSSCV = AngleToPWM(-angles[i].TibiaAngle);
     }
     else
     {
+      wCoxaSSCV = AngleToPWM(angles[i].CoxaAngle);
       wFemurSSCV = AngleToPWM(-angles[i].FemurAngle);
-      wTibiaSSCV = AngleToPWM(-angles[i].TibiaAngle);
+      wTibiaSSCV = AngleToPWM(angles[i].TibiaAngle);
     }
   
     HWSerial.print("#");
@@ -267,21 +319,52 @@ void setLegAngles(LegAngles *angles, word wMoveTime)
     HWSerial.print("P");
     HWSerial.print(wTibiaSSCV, DEC);
   }
+  USBSerial.println("");
   HWSerial.print("T");
   HWSerial.println(wMoveTime, DEC);
+  SSC32Wait(wMoveTime);
+}
+
+void SSC32Wait(word wMoveTime)
+{
+  uint32_t time = millis();
+  while (millis() - time <= wMoveTime-1)
+  {}
+  
+  //for (uint16_t count = 0;count < 16000;count++)
+  /*while (1)
+  {
+    HWSerial.write("Q \r");
+    delay(1);
+    if (HWSerial.available() > 0) 
+    {
+      char incomingByte = HWSerial.read();
+      //USBSerial.println(incomingByte);
+      if (incomingByte == '.')
+      {
+        USBSerial.println("Done!");
+        break;
+      }       
+    }
+    delay(1);
+  }*/
+  
+  uint32_t dtime = millis() - time;
+  //USBSerial.print("Time: ");
+  //USBSerial.println(dtime, DEC);
 }
 
 void loop() {
     
-  switch (GaitSeq)
+  /*switch (GaitSeq)
   {
     case 0:
       Gait[RF].x = 0.0F;
-      Gait[RF].y = -12.5F;
+      Gait[RF].y = -12.5F*2.0;
       Gait[RF].z = 0.0F;
       
       Gait[RM].x = 0.0F;
-      Gait[RM].y = 12.5F;
+      Gait[RM].y = 12.5F*2.0;
       Gait[RM].z = 0.0F;
       
       Gait[RR].x = 0.0F;
@@ -289,11 +372,11 @@ void loop() {
       Gait[RR].z = 0.0F;
       
       Gait[LF].x = 0.0F;
-      Gait[LF].y = 6.25F;
+      Gait[LF].y = 6.25F*2.0;
       Gait[LF].z = 0.5F;
       
       Gait[LM].x = 0.0F;
-      Gait[LM].y = -6.25F;
+      Gait[LM].y = -6.25F*2.0;
       Gait[LM].z = 0.0F;
       
       Gait[LR].x = 0.0F;
@@ -307,11 +390,11 @@ void loop() {
       Gait[RF].z = -30.0F;
       
       Gait[RM].x = 0.0F;
-      Gait[RM].y = 6.25F;
+      Gait[RM].y = 6.25F*2.0;
       Gait[RM].z = 0.0F;
       
       Gait[RR].x = 0.0F;
-      Gait[RR].y = -6.25F;
+      Gait[RR].y = -6.25F*2.0;
       Gait[RR].z = 0.0F;
       
       Gait[LF].x = 0.0F;
@@ -319,16 +402,16 @@ void loop() {
       Gait[LF].z = 0.0F;
       
       Gait[LM].x = 0.0F;
-      Gait[LM].y = -12.5F;
+      Gait[LM].y = -12.5F*2.0;
       Gait[LM].z = 0.0F;
       
       Gait[LR].x = 0.0F;
-      Gait[LR].y = 12.5F;
+      Gait[LR].y = 12.5F*2.0;
       Gait[LR].z = 0.0F;
       break;
     case 2:
       Gait[RF].x = 0.0F;
-      Gait[RF].y = 12.5F;
+      Gait[RF].y = 12.5F*2.0;
       Gait[RF].z = 0.0F;
       
       Gait[RM].x = 0.0F;
@@ -336,11 +419,11 @@ void loop() {
       Gait[RM].z = 0.0F;
       
       Gait[RR].x = 0.0F;
-      Gait[RR].y = -12.5F;
+      Gait[RR].y = -12.5F*2.0;
       Gait[RR].z = 0.0F;
       
       Gait[LF].x = 0.0F;
-      Gait[LF].y = -6.25F;
+      Gait[LF].y = -6.25F*2.0;
       Gait[LF].z = 0.0F;
       
       Gait[LM].x = 0.0F;
@@ -348,16 +431,16 @@ void loop() {
       Gait[LM].z = -30.0F;
       
       Gait[LR].x = 0.0F;
-      Gait[LR].y = 6.25F;
+      Gait[LR].y = 6.25F*2.0;
       Gait[LR].z = 0.0F;
       break;
     case 3:
       Gait[RF].x = 0.0F;
-      Gait[RF].y = 6.25F;
+      Gait[RF].y = 6.25F*2.0;
       Gait[RF].z = 0.0F;
       
       Gait[RM].x = 0.0F;
-      Gait[RM].y = -6.25F;
+      Gait[RM].y = -6.25F*2.0;
       Gait[RM].z = 0.0F;
       
       Gait[RR].x = 0.0F;
@@ -365,11 +448,11 @@ void loop() {
       Gait[RR].z = -30.0F;
       
       Gait[LF].x = 0.0F;
-      Gait[LF].y = -12.5F;
+      Gait[LF].y = -12.5F*2.0;
       Gait[LF].z = 0.0F;
       
       Gait[LM].x = 0.0F;
-      Gait[LM].y = 12.5F;
+      Gait[LM].y = 12.5F*2.0;
       Gait[LM].z = 0.0F;
       
       Gait[LR].x = 0.0F;
@@ -382,11 +465,11 @@ void loop() {
       Gait[RF].z = 0.0F;
       
       Gait[RM].x = 0.0F;
-      Gait[RM].y = -12.5F;
+      Gait[RM].y = -12.5F*2.0;
       Gait[RM].z = 0.0F;
       
       Gait[RR].x = 0.0F;
-      Gait[RR].y = 12.5F;
+      Gait[RR].y = 12.5F*2.0;
       Gait[RR].z = 0.0F;
       
       Gait[LF].x = 0.0F;
@@ -394,16 +477,16 @@ void loop() {
       Gait[LF].z = -30.0F;
       
       Gait[LM].x = 0.0F;
-      Gait[LM].y = 6.25F;
+      Gait[LM].y = 6.25F*2.0;
       Gait[LM].z = 0.0F;
       
       Gait[LR].x = 0.0F;
-      Gait[LR].y = -6.25F;
+      Gait[LR].y = -6.25F*2.0;
       Gait[LR].z = 0.0F;
       break;
     case 5:
       Gait[RF].x = 0.0F;
-      Gait[RF].y = -6.25F;
+      Gait[RF].y = -6.25F*2.0;
       Gait[RF].z = 0.0F;
       
       Gait[RM].x = 0.0F;
@@ -411,11 +494,11 @@ void loop() {
       Gait[RM].z = -30.0F;
       
       Gait[RR].x = 0.0F;
-      Gait[RR].y = 6.25F;
+      Gait[RR].y = 6.25F*2.0;
       Gait[RR].z = 0.0F;
       
       Gait[LF].x = 0.0F;
-      Gait[LF].y = 12.5F;
+      Gait[LF].y = 12.5F*2.0;
       Gait[LF].z = 0.0F;
       
       Gait[LM].x = 0.0F;
@@ -423,7 +506,7 @@ void loop() {
       Gait[LM].z = 0.0F;
       
       Gait[LR].x = 0.0F;
-      Gait[LR].y = -12.5F;
+      Gait[LR].y = -12.5F*2.0;
       Gait[LR].z = 0.0F;
       GaitSeq=-1;
       break;
@@ -432,7 +515,25 @@ void loop() {
       GaitSeq=0;
       break;
   }
-  GaitSeq++;
+  GaitSeq++;*/
+  //bRot;
+  
+  
+  if (GaitSeq <= 4)
+  {
+    bTrans.x += 5.0f;
+    GaitSeq++;
+  }
+  else
+  {
+    GaitSeq = 0;
+    bTrans.x = 0;
+  }
+  
+  USBSerial.print("X: ");
+  USBSerial.println(bTrans.x);
+  //bTrans.x = 50;
   UpdateLegs();
-  delay(100);
+  
+  //delay(100);
 }

@@ -45,13 +45,22 @@ float body_init[3][6] =  {  {43.0F, 63.0F, 43.0F, -43.0F, -63.0F, -43.0F},
                             {82.0F,  0.0F,-82.0F,  82.0F,   0.0F, -82.0F}, 
                             { 0.0F,  0.0F,  0.0F,   0.0F,   0.0F,   0.0F}};
                             
-float RF_transform[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
-float RM_transform[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
-float RR_transform[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
+float RF_leg_to_body[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
+float RM_leg_to_body[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
+float RR_leg_to_body[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
 
-float LF_transform[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
-float LM_transform[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
-float LR_transform[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
+float LF_leg_to_body[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
+float LM_leg_to_body[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
+float LR_leg_to_body[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
+
+float RF_body_to_leg[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
+float RM_body_to_leg[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
+float RR_body_to_leg[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
+
+float LF_body_to_leg[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
+float LM_body_to_leg[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
+float LR_body_to_leg[3][3] ={ {0,0,0}, {0,0,0}, {0,0,0} };
+
 
 GaitData Gait[6];
 LegAngles Angles[6];
@@ -67,3 +76,12 @@ const float CoxaLength = 29.0F;
 const float FemurLength = 76.0F;
 const float TibiaLength = 106.0F;
 
+#define RIPPLE                  0
+#define RIPPLE_SMOOTH           1
+#define AMBLE                   2
+#define AMBLE_SMOOTH            3 
+#define TRIPOD                  4
+
+#define MOVING   ((Xspeed > 5 || Xspeed < -5) || (Yspeed > 5 || Yspeed < -5) || (Rspeed > 0.05 || Rspeed < -0.05))
+
+#define STD_TRANSITION          100
