@@ -106,61 +106,24 @@ void BuildTransforms()
                       {0,0,0}};
   // These rotation matrices are to convert from the leg coordinate system to the body coordinate system.                    
   BuildRotationMatrix(0,0,60,(float*)temp);
-  MatrixTranspose((float*) temp,3,3,(float*) RF_leg_to_body);
-  
-  BuildRotationMatrix(0,0,0,(float*)temp);
-  MatrixTranspose((float*) temp,3,3,(float*) RM_leg_to_body);
-  
-  BuildRotationMatrix(0,0,300,(float*)temp);
-  MatrixTranspose((float*) temp,3,3,(float*) RR_leg_to_body);
-  
-  BuildRotationMatrix(0,0,120,(float*)temp);
-  MatrixTranspose((float*) temp,3,3,(float*) LF_leg_to_body);
-  
-  BuildRotationMatrix(0,0,180, (float*)temp);
-  MatrixTranspose((float*) temp,3,3,(float*) LM_leg_to_body);
-  
-  BuildRotationMatrix(0,0,240,(float*)temp);
-  MatrixTranspose((float*) temp,3,3,(float*) LR_leg_to_body);
-  
-  
-  BuildRotationMatrix(0,0,-60,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) RF_body_to_leg);
   
   BuildRotationMatrix(0,0,0,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) RM_body_to_leg);
   
-  BuildRotationMatrix(0,0,-300,(float*)temp);
+  BuildRotationMatrix(0,0,300,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) RR_body_to_leg);
   
-  BuildRotationMatrix(0,0,-120,(float*)temp);
+  BuildRotationMatrix(0,0,120,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) LF_body_to_leg);
   
-  BuildRotationMatrix(0,0,-180, (float*)temp);
+  BuildRotationMatrix(0,0,180, (float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) LM_body_to_leg);
   
-  BuildRotationMatrix(0,0,-240,(float*)temp);
+  BuildRotationMatrix(0,0,240,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) LR_body_to_leg);
-}
+  
 
-float* GetLegToBodyTransform (byte LegNr)
-{
-  switch (LegNr)
-  {
-    case RF:
-      return (float*)RF_leg_to_body;
-    case RM:
-      return (float*)RM_leg_to_body;
-    case RR:
-      return (float*)RR_leg_to_body;
-    case LF:
-      return (float*)LF_leg_to_body;
-    case LM:
-      return (float*)LM_leg_to_body;
-    case LR:
-      return (float*)LR_leg_to_body;
-  }
-  return NULL;
 }
 
 float* GetBodyToLegTransform (byte LegNr)
@@ -195,7 +158,7 @@ LegAngles LegIK(float* body_delta_pt, float FeetPosX, float FeetPosY, float Feet
   float body_transform[3][1] = { {0}, {0}, {0} };
   float foot_transform[3][1] = { {0}, {0}, {0} };
   
-  MatrixMultiply(GetLegToBodyTransform(LegNr),body_delta_pt,3,3,1,(float*)body_transform);
+  MatrixMultiply(GetBodyToLegTransform(LegNr),body_delta_pt,3,3,1,(float*)body_transform);
   MatrixMultiply(GetBodyToLegTransform(LegNr),(float*)foot_vector,3,3,1,(float*)foot_transform);
   
   

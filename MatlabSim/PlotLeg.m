@@ -6,7 +6,7 @@ function [ ] = PlotLeg( body_init, body_delta, foot_delta, body_angle, color )
 %body_angle = 60;
 
 body_delta_t = TransformCoord(body_delta, body_angle);
-foot_delta_t = TransformCoord(foot_delta, -body_angle);
+foot_delta_t = TransformCoord(foot_delta, body_angle);
 
 [ CoxaAngle,FemurAngle,TibiaAngle ] = LegIK( body_delta_t , foot_delta_t);
 disp(['body_angle: ', num2str(body_angle),' Coxa: ', num2str(CoxaAngle), ' Femur: ', num2str(FemurAngle), ' Tibia: ', num2str(TibiaAngle)]);
