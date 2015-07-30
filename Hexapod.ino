@@ -1,6 +1,22 @@
 #include "Arduino.h"
 #include "common.h"
 
+void MatrixPrint(float* A, int m, int n, char* label){
+     // A = input matrix (m x n)
+     int i,j;
+     Serial.println(label);
+     Serial.println(" Matrix values:");
+     for (i=0; i<m; i++){
+           for (j=0;j<n;j++){
+                 Serial.print(A[n*i+j]);
+                 Serial.print("; i=");
+                 Serial.print(i);
+                 Serial.print(" j=");
+                 Serial.println(j);
+           }
+     }
+}
+
 void MatrixMultiply(float* A, float* B, int m, int p, int n, float* C)
 {
   // A = input matrix (m x p)
@@ -57,17 +73,48 @@ void MatrixTranspose(float* A, int m, int n, float* C)
       C[m*j+i]=A[n*i+j];
 }
 
-void BuildRotationMatrix(float x_angle, float y_angle, float z_angle, float *result)
+void BuildRotationMatrixXYZ(float x_angle, float y_angle, float z_angle, float *result)
 {
   // Convert all angles to radians
   float rad_x_angle = x_angle * DEG_TO_RAD;
   float rad_y_angle = y_angle * DEG_TO_RAD;
   float rad_z_angle = z_angle * DEG_TO_RAD;
   
+  // Assume input angles are all 0 degrees
+  
+  float RxCos = 1.0F;
+  float RxSin = 0.0F;
+  
+  float RyCos = 1.0F;
+  float RySin = 0.0F;
+  
+  float RzCos = 1.0F;
+  float RzSin = 0.0F;
+  
+  // Only calculate for non zero angles to save cpu cycles
+  
+  if (x_angle != 0.0F)
+  {
+    RxCos = cosf(rad_x_angle);
+    RxSin = sinf(rad_x_angle);
+  }
+  
+  if (y_angle != 0.0F)
+  {
+    RyCos = cosf(rad_y_angle);
+    RySin = sinf(rad_y_angle);
+  }
+  
+  if (z_angle != 0.0F)
+  {
+    RzCos = cosf(rad_z_angle);
+    RzSin = sinf(rad_z_angle);
+  }
+  
   // Build rotation matrices 
-  float Rx[3][3] = { {1,0,0}, { 0, cosf(rad_x_angle), -sinf(rad_x_angle) }, {0, sinf(rad_x_angle), cosf(rad_x_angle)} };
-  float Ry[3][3] = { {cosf(rad_y_angle),0,sinf(rad_y_angle)}, {0,1,0}, {-sinf(rad_y_angle),0,cosf(rad_y_angle)}};
-  float Rz[3][3] = { {cosf(rad_z_angle), -sinf(rad_z_angle), 0}, {sinf(rad_z_angle), cosf(rad_z_angle),0}, {0,0,1}};
+  float Rx[3][3] = { {1,0,0}, { 0, RxCos, -RxSin }, {0, RxSin, RxCos} };
+  float Ry[3][3] = { {RyCos,0,RySin}, {0,1,0}, {-RySin,0,RyCos}};
+  float Rz[3][3] = { {RzCos, -RzSin, 0}, {RzSin, RzCos,0}, {0,0,1}};
   // Rxy holds the intermediate result for final Rxyz solution
   float Rxy[3][3] = {{0,0,0},{0,0,0},{0,0,0}};
   // Calculate Rxy
@@ -76,27 +123,17 @@ void BuildRotationMatrix(float x_angle, float y_angle, float z_angle, float *res
   MatrixMultiply((float*)Rxy,(float*)Rz,3,3,3,(float*)result);
 }
 
-void RotateTranslate(float *body_points, float x_angle, float y_angle, float z_angle, float x_trans, float y_trans, float z_trans, float *result)
-{
-  // Build matrix to hold body translate data
-  float trans[3][6] = { {x_trans, x_trans, x_trans, x_trans, x_trans, x_trans}, 
-                        {y_trans, y_trans, y_trans, y_trans, y_trans, y_trans},
-                        {z_trans, z_trans, z_trans, z_trans, z_trans, z_trans} };                      
+void RotateXYZ(float *points, float x_angle, float y_angle, float z_angle, float *result)
+{                
   float Rxyz[3][3] = {{0,0,0},
                       {0,0,0},
                       {0,0,0}};
 
-  float rot_output[][6] = {{0,0,0,0,0,0},
-                           {0,0,0,0,0,0},
-                           {0,0,0,0,0,0}};
   // Build rotation matrix based off supplied angles                         
-  BuildRotationMatrix(x_angle,y_angle,z_angle,(float*)Rxyz);
+  BuildRotationMatrixXYZ(x_angle,y_angle,z_angle,(float*)Rxyz);
   
   // Perform rotation on the 6-points of the body
-  MatrixMultiply((float*)Rxyz,(float*)body_points,3,3,6,(float*)rot_output);
-  
-  // Add the body translation values
-  MatrixAdd((float*) rot_output, (float*) trans, 3, 6, (float*) result);
+  MatrixMultiply((float*)Rxyz,(float*)points,3,3,1,(float*)result);
 }
 
 void BuildTransforms()
@@ -105,22 +142,22 @@ void BuildTransforms()
                       {0,0,0}, 
                       {0,0,0}};
   // These rotation matrices are to convert from the leg coordinate system to the body coordinate system.                    
-  BuildRotationMatrix(0,0,60,(float*)temp);
+  BuildRotationMatrixXYZ(0,0,60,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) RF_body_to_leg);
   
-  BuildRotationMatrix(0,0,0,(float*)temp);
+  BuildRotationMatrixXYZ(0,0,0,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) RM_body_to_leg);
   
-  BuildRotationMatrix(0,0,300,(float*)temp);
+  BuildRotationMatrixXYZ(0,0,300,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) RR_body_to_leg);
   
-  BuildRotationMatrix(0,0,120,(float*)temp);
+  BuildRotationMatrixXYZ(0,0,120,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) LF_body_to_leg);
   
-  BuildRotationMatrix(0,0,180, (float*)temp);
+  BuildRotationMatrixXYZ(0,0,180, (float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) LM_body_to_leg);
   
-  BuildRotationMatrix(0,0,240,(float*)temp);
+  BuildRotationMatrixXYZ(0,0,240,(float*)temp);
   MatrixTranspose((float*) temp,3,3,(float*) LR_body_to_leg);
   
 
@@ -151,29 +188,19 @@ short AngleToPWM(float angle)
     return (short)((((angle + 90) / 180.0) * 1800) + 600);
 }
 
-LegAngles LegIK(float* body_delta_pt, float FeetPosX, float FeetPosY, float FeetPosZ, byte LegNr)
+LegAngles LegIK(float FeetPosX, float FeetPosY, float FeetPosZ, byte LegNr)
 {
   LegAngles result;
   float foot_vector[3][1] = { { FeetPosX }, { FeetPosY }, { FeetPosZ } };
-  float body_transform[3][1] = { {0}, {0}, {0} };
   float foot_transform[3][1] = { {0}, {0}, {0} };
   
-  MatrixMultiply(GetBodyToLegTransform(LegNr),body_delta_pt,3,3,1,(float*)body_transform);
   MatrixMultiply(GetBodyToLegTransform(LegNr),(float*)foot_vector,3,3,1,(float*)foot_transform);
-  
-  
-  float body_x = body_transform[0][0];  
-  float body_y = body_transform[1][0];  
-  float body_z = body_transform[2][0];
-  
-  float foot_x = (CoxaLength + FemurLength) + foot_transform[0][0] - body_x;
-  float foot_y = foot_transform[1][0] - body_y;  
-  float foot_z = TibiaLength + foot_transform[2][0] - body_z;
+   
+  float foot_x = (CoxaLength + FemurLength) + foot_transform[0][0];
+  float foot_y = foot_transform[1][0];  
+  float foot_z = TibiaLength + foot_transform[2][0];
   
 
- 
-  //float L1 = foot_x - body_x;
-  //float Zoffset = body_z - foot_z;
   float L = sqrt( foot_z * foot_z + (foot_x - CoxaLength)*(foot_x - CoxaLength));
   float A1 = acosf(foot_z / L);
   float A2 = acosf( (L*L + FemurLength*FemurLength - TibiaLength*TibiaLength) / (2*L*FemurLength) );
@@ -181,7 +208,7 @@ LegAngles LegIK(float* body_delta_pt, float FeetPosX, float FeetPosY, float Feet
   float B = acosf( (FemurLength*FemurLength + TibiaLength*TibiaLength - L*L) / (2*FemurLength*TibiaLength) ) * RAD_TO_DEG;
 
   result.CoxaAngle = atan2f( foot_y , foot_x ) * RAD_TO_DEG;
-  result.FemurAngle = A - 90.0F;
+  result.FemurAngle = -(A - 90.0F);
   result.TibiaAngle = 90.0F - B;
   return result;
 }
@@ -204,6 +231,7 @@ void InitPositions()
     Gait[i].x = 0;
     Gait[i].y = 0;
     Gait[i].z = 0;
+    Gait[i].rot_z = 0;
   }
   
   bRot.x = 0.0F;
@@ -216,24 +244,53 @@ void InitPositions()
 
 void UpdateLegs()
 {
-  float body_pts[3][6] = {{0,0,0,0,0,0},{0,0,0,0,0,0},{0,0,0,0,0,0}};
-  float body_delta[3][6] = {{0,0,0,0,0,0},{0,0,0,0,0,0},{0,0,0,0,0,0}};
-  
-  //unsigned long time = micros();
-  RotateTranslate((float*)body_init,bRot.x,bRot.y,bRot.z,bTrans.x,bTrans.y,bTrans.z, (float*)body_pts);
+  unsigned long time = micros();
 
-  MatrixSubtract((float*)body_pts, (float*)body_init,3,6,(float*)body_delta);
   LegAngles angles[6];
-
+  float body_translate[3][1] = { {bTrans.x}, {bTrans.y},{bTrans.z} };
+  
   for (int i=0;i<6;i++)
   {
-    float body_delta_pt[3][1] = { { body_delta[0][i] }, { body_delta[1][i] }, {body_delta[2][i]} };
-    angles[i] = LegIK((float*)body_delta_pt,Gait[i].x,Gait[i].y,Gait[i].z,i);
+    //Serial.print("Leg: ");
+    //Serial.println(i,DEC);
+
+    float body_rot_out[3][1] = { {0}, {0}, {0} };
+    float body_diff[3][1] = { {0}, {0}, {0} };
+    float body_diff_total[3][1] = { {0}, {0}, {0} };
+    
+    
+    float body_init_pt[3][1] = { {body_init[0][i]}, {body_init[1][i]}, {body_init[2][i]} };
+    //MatrixPrint((float*)body_init_pt,3,1,"\nbody_init_pt");   
+    RotateXYZ((float*)body_init_pt, bRot.x, bRot.y, bRot.z,(float*)body_rot_out);
+    //MatrixPrint((float*)body_rot_out,3,1,"\nbody_rot_out");
+    
+    MatrixSubtract((float*)body_init_pt, (float*)body_rot_out,3,1,(float*)body_diff);
+    //MatrixPrint((float*)body_diff,3,1,"\nbody_diff");
+    MatrixAdd((float*)body_diff, (float*)body_translate,3,1,(float*)body_diff_total);
+    //MatrixPrint((float*)body_diff_total,3,1,"\nbody_diff_total");
+    
+    float foot_pt[3][1] = { {body_init[0][i] + foot_init[0][i]}, {body_init[1][i] + foot_init[1][i]}, {body_init[2][i] + foot_init[2][i]} };
+    float foot_rot[3][1] = { {0}, {0}, {0} };
+    float foot_diff[3][1] = { {0}, {0}, {0} };
+    float foot_diff_total[3][1] = { {0}, {0}, {0} };
+    float gait_trans[3][1] = { {Gait[i].x}, {Gait[i].y}, {Gait[i].z} };
+    //MatrixPrint((float*)foot_pt,3,1,"\nfoot_pt");
+    RotateXYZ((float*)foot_pt, 0, 0, Gait[i].rot_z,(float*)foot_rot);
+    //MatrixPrint((float*)foot_rot,3,1,"\nfoot_rot");
+    MatrixSubtract((float*)foot_rot, (float*)foot_pt,3,1,(float*)foot_diff);
+    //MatrixPrint((float*)foot_diff,3,1,"\nfoot_diff");
+    MatrixAdd((float*)foot_diff, (float*)gait_trans,3,1,(float*)foot_diff_total);
+    //MatrixPrint((float*)foot_diff_total,3,1,"\nfoot_diff_total");
+    
+    float foot_ik[3][1] = { {0}, {0}, {0} };
+    MatrixAdd((float*)body_diff_total, (float*)foot_diff_total,3,1,(float*)foot_ik);
+    //MatrixPrint((float*)foot_ik,3,1,"\nfoot_ik");
+    angles[i] = LegIK(foot_ik[0][1], foot_ik[0][2], foot_ik[0][3], i);
   }
-  //unsigned long dtime = micros() - time;
-  //USBSerial.print("Time: ");
+  unsigned long dtime = micros() - time;
+  USBSerial.print("Time: ");
   
-  //USBSerial.println(dtime);
+  USBSerial.println(dtime);
   
   setLegAngles(angles,300);
 }
@@ -246,14 +303,14 @@ void setLegAngles(LegAngles *angles, word wMoveTime)
   
   for (int i = 0;i < 6;i++)
   {
-    USBSerial.print("Leg: ");
+    /*USBSerial.print("Leg: ");
     USBSerial.print(i);
     USBSerial.print("  ");
     USBSerial.print(angles[i].CoxaAngle);
     USBSerial.print("  ");
     USBSerial.print(angles[i].FemurAngle);
     USBSerial.print("  ");
-    USBSerial.println(angles[i].TibiaAngle);
+    USBSerial.println(angles[i].TibiaAngle);*/
     
     
     if (i < 3)
@@ -315,6 +372,43 @@ void SSC32Wait(word wMoveTime)
   uint32_t dtime = millis() - time;
   //USBSerial.print("Time: ");
   //USBSerial.println(dtime, DEC);
+}
+
+void UpdateGait()
+{
+  
+  
+  float Xmove = 0.0F;
+  float Ymove = 10.0F;
+  
+  switch (GaitSeq)
+  {
+    case 0:
+      Gait[RF].x = 0.0F;
+      Gait[RF].y = Ymove;
+      Gait[RF].z = 0.0F;
+      
+      Gait[RM].x = 0.0F;
+      Gait[RM].y = 12.5F*2.0;
+      Gait[RM].z = 0.0F;
+      
+      Gait[RR].x = 0.0F;
+      Gait[RR].y = 0.0F;
+      Gait[RR].z = 0.0F;
+      
+      Gait[LF].x = 0.0F;
+      Gait[LF].y = 6.25F*2.0;
+      Gait[LF].z = 0.5F;
+      
+      Gait[LM].x = 0.0F;
+      Gait[LM].y = -6.25F*2.0;
+      Gait[LM].z = 0.0F;
+      
+      Gait[LR].x = 0.0F;
+      Gait[LR].y = 0.0;
+      Gait[LR].z = -30.0F;
+      GaitSeq++;
+  }
 }
 
 void loop() {
@@ -482,19 +576,41 @@ void loop() {
   //bRot;
   
   
-  if (GaitSeq <= 4)
+  /*if (GaitSeq <= 6)
   {
-    bTrans.x += 5.0f;
+    //bTrans.z += 5.0f;
+    bRot.x += 5.0f;
     GaitSeq++;
   }
   else
   {
     GaitSeq = 0;
-    bTrans.x = 0;
-  }
+    //bTrans.z = -20.0F;
+    bRot.x = -15.0f;
+  }*/
   
-  USBSerial.print("X: ");
-  USBSerial.println(bTrans.x);
+  /*if (GaitSeq <= 10000)
+  {
+    bTrans.x = 30*cosf(2 * 3.1415 * (1.0F / 10.0f) * (float)GaitSeq);
+    bTrans.y = 30*sinf(2 * 3.1415 * (1.0F / 10.0f) * (float)GaitSeq);
+    GaitSeq++;
+  }
+  else
+  {
+    GaitSeq = 0;
+  }*/
+  
+  //UpdateGait();
+  bRot.x = 5;
+  bRot.y = 10;
+  bRot.z = 15;
+  bTrans.x = 5;
+  bTrans.y = 10;
+  bTrans.z = 15;
+  Gait[0].x = 1;
+  Gait[0].y = 2;
+  Gait[0].z = 3;
+  Gait[0].rot_z = 10;
   //bTrans.x = 50;
   UpdateLegs();
   
