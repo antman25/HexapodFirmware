@@ -95,6 +95,11 @@ BodyTranslate bTrans;
 
 int GaitSeq = 0;
 
+float Xmove = 0.0F;
+float Ymove = 25.0F;
+float Zrot = 30;
+float LiftHeight = 30.0F;
+
 #define USBSerial Serial
 #define HWSerial Serial1
 
