@@ -195,10 +195,25 @@ LegAngles LegIK(float FeetPosX, float FeetPosY, float FeetPosZ, byte LegNr)
   float foot_transform[3][1] = { {0}, {0}, {0} };
   
   MatrixMultiply(GetBodyToLegTransform(LegNr),(float*)foot_vector,3,3,1,(float*)foot_transform);
-   
+  
+  /*USBSerial.print("X: ");
+  USBSerial.print(foot_transform[0][0]);
+  USBSerial.print("   Y: ");
+  USBSerial.print(foot_transform[1][0]);
+  USBSerial.print("   Z: ");
+  USBSerial.println(foot_transform[2][0]);*/
+  
   float foot_x = (CoxaLength + FemurLength) + foot_transform[0][0];
   float foot_y = foot_transform[1][0];  
   float foot_z = TibiaLength + foot_transform[2][0];
+  
+  
+  /*USBSerial.print("Xt: ");
+  USBSerial.print(foot_x);
+  USBSerial.print("   Yt: ");
+  USBSerial.print(foot_y);
+  USBSerial.print("   Zt: ");
+  USBSerial.println(foot_z);*/
   
 
   float L = sqrt( foot_z * foot_z + (foot_x - CoxaLength)*(foot_x - CoxaLength));
@@ -210,6 +225,14 @@ LegAngles LegIK(float FeetPosX, float FeetPosY, float FeetPosZ, byte LegNr)
   result.CoxaAngle = atan2f( foot_y , foot_x ) * RAD_TO_DEG;
   result.FemurAngle = -(A - 90.0F);
   result.TibiaAngle = 90.0F - B;
+  
+  /*USBSerial.print("CoxaAngle: ");
+  USBSerial.print(result.CoxaAngle,DEC);
+  USBSerial.print("   FemurAngle: ");
+  USBSerial.print(result.FemurAngle,DEC);
+  USBSerial.print("   TibiaAngle: ");
+  USBSerial.println(result.TibiaAngle,DEC);*/
+  
   return result;
 }
 
@@ -285,12 +308,13 @@ void UpdateLegs()
     float foot_ik[3][1] = { {0}, {0}, {0} };
     MatrixAdd((float*)body_diff_total, (float*)foot_diff_total,3,1,(float*)foot_ik);
     //MatrixPrint((float*)foot_ik,3,1,"\nfoot_ik");
-    angles[i] = LegIK(foot_ik[0][1], foot_ik[0][2], foot_ik[0][3], i);
+    
+    angles[i] = LegIK(foot_ik[0][0], foot_ik[0][1], foot_ik[0][2], i);
   }
-  unsigned long dtime = micros() - time;
-  USBSerial.print("Time: ");
+  //unsigned long dtime = micros() - time;
+  //USBSerial.print("Time: ");
   
-  USBSerial.println(dtime);
+  //USBSerial.println(dtime);
   
   setLegAngles(angles,300);
 }
@@ -348,7 +372,7 @@ void setLegAngles(LegAngles *angles, word wMoveTime)
 void SSC32Wait(word wMoveTime)
 {
   uint32_t time = millis();
-  while (millis() - time <= wMoveTime-1)
+  while (millis() - time <= wMoveTime)
   {}
   
   //for (uint16_t count = 0;count < 16000;count++)
@@ -376,52 +400,191 @@ void SSC32Wait(word wMoveTime)
 
 void UpdateGait()
 {
-  
-  
-  float Xmove = 0.0F;
-  float Ymove = 10.0F;
+  float XmoveDiv2 = Xmove / 2.0f;
+  float XmoveDiv4 = Xmove / 4.0f;
+  float YmoveDiv2 = Ymove / 2.0f;
+  float YmoveDiv4 = Ymove / 4.0f;
   
   switch (GaitSeq)
   {
     case 0:
-      Gait[RF].x = 0.0F;
-      Gait[RF].y = Ymove;
+      Gait[RF].x = -XmoveDiv2;
+      Gait[RF].y = -YmoveDiv2;
       Gait[RF].z = 0.0F;
       
-      Gait[RM].x = 0.0F;
-      Gait[RM].y = 12.5F*2.0;
+      Gait[RM].x = XmoveDiv2;
+      Gait[RM].y = YmoveDiv2;
       Gait[RM].z = 0.0F;
       
       Gait[RR].x = 0.0F;
       Gait[RR].y = 0.0F;
       Gait[RR].z = 0.0F;
       
-      Gait[LF].x = 0.0F;
-      Gait[LF].y = 6.25F*2.0;
-      Gait[LF].z = 0.5F;
+      Gait[LF].x = XmoveDiv4;
+      Gait[LF].y = YmoveDiv4;
+      Gait[LF].z = 0.0F;
       
-      Gait[LM].x = 0.0F;
-      Gait[LM].y = -6.25F*2.0;
+      Gait[LM].x = -XmoveDiv4;
+      Gait[LM].y = -YmoveDiv4;
       Gait[LM].z = 0.0F;
       
       Gait[LR].x = 0.0F;
       Gait[LR].y = 0.0;
-      Gait[LR].z = -30.0F;
-      GaitSeq++;
+      Gait[LR].z = -LiftHeight;
+      Gait[LR].rot_z = Zrot;
+
+      break;
+    case 1:
+      Gait[RF].x = 0.0F;
+      Gait[RF].y = 0.0F;
+      Gait[RF].z = -LiftHeight;
+      Gait[RF].rot_z = Zrot;
+      
+      Gait[RM].x = XmoveDiv4;
+      Gait[RM].y = YmoveDiv4;
+      Gait[RM].z = 0.0F;
+      
+      Gait[RR].x = -XmoveDiv4;
+      Gait[RR].y = -YmoveDiv4;
+      Gait[RR].z = 0.0F;
+      
+      Gait[LF].x = 0.0F;
+      Gait[LF].y = 0.0F;
+      Gait[LF].z = 0.0F;
+      
+      Gait[LM].x = -XmoveDiv2;
+      Gait[LM].y = -YmoveDiv2;
+      Gait[LM].z = 0.0F;
+      
+      Gait[LR].x = XmoveDiv2;
+      Gait[LR].y = YmoveDiv2;
+      Gait[LR].z = 0.0F;
+      break;
+    case 2:
+      Gait[RF].x = XmoveDiv2;
+      Gait[RF].y = YmoveDiv2;
+      Gait[RF].z = 0.0F;
+      
+      Gait[RM].x = 0.0F;
+      Gait[RM].y = 0.0F;
+      Gait[RM].z = 0.0F;
+      
+      Gait[RR].x = -XmoveDiv2;
+      Gait[RR].y = -YmoveDiv2;
+      Gait[RR].z = 0.0F;
+      
+      Gait[LF].x = -XmoveDiv4;
+      Gait[LF].y = -YmoveDiv4;
+      Gait[LF].z = 0.0F;
+      
+      Gait[LM].x = 0.0F;
+      Gait[LM].y = 0.0F;
+      Gait[LM].z = -LiftHeight;
+      Gait[LM].rot_z = Zrot;
+      
+      Gait[LR].x = XmoveDiv4;
+      Gait[LR].y = YmoveDiv4;
+      Gait[LR].z = 0.0F;
+      break;
+    case 3:
+      Gait[RF].x = XmoveDiv4;
+      Gait[RF].y = YmoveDiv4;
+      Gait[RF].z = 0.0F;
+      
+      Gait[RM].x = -XmoveDiv4;
+      Gait[RM].y = -YmoveDiv4;
+      Gait[RM].z = 0.0F;
+      
+      Gait[RR].x = 0.0F;
+      Gait[RR].y = 0.0F;
+      Gait[RR].z = -30.0F;
+      Gait[RR].rot_z = Zrot;
+      
+      Gait[LF].x = -XmoveDiv2;
+      Gait[LF].y = -YmoveDiv2;
+      Gait[LF].z = 0.0F;
+      
+      Gait[LM].x = XmoveDiv2;
+      Gait[LM].y = YmoveDiv2;
+      Gait[LM].z = 0.0F;
+      
+      Gait[LR].x = 0.0F;
+      Gait[LR].y = 0.0F;
+      Gait[LR].z = 0.0F;
+      break;
+    case 4:
+      Gait[RF].x = 0.0F;
+      Gait[RF].y = 0.0F;
+      Gait[RF].z = 0.0F;
+      
+      Gait[RM].x = -XmoveDiv2;
+      Gait[RM].y = -YmoveDiv2;
+      Gait[RM].z = 0.0F;
+      
+      Gait[RR].x = XmoveDiv2;
+      Gait[RR].y = YmoveDiv2;
+      Gait[RR].z = 0.0F;
+      
+      Gait[LF].x = 0.0F;
+      Gait[LF].y = 0.0F;
+      Gait[LF].z = -LiftHeight;
+      Gait[LF].rot_z = Zrot;
+      
+      Gait[LM].x = XmoveDiv4;
+      Gait[LM].y = YmoveDiv4;
+      Gait[LM].z = 0.0F;
+      
+      Gait[LR].x = -XmoveDiv4;
+      Gait[LR].y = -YmoveDiv4;
+      Gait[LR].z = 0.0F;
+      break;
+    case 5:
+      Gait[RF].x = -XmoveDiv4;
+      Gait[RF].y = -YmoveDiv4;
+      Gait[RF].z = 0.0F;
+      
+      Gait[RM].x = 0.0F;
+      Gait[RM].y = 0.0F;
+      Gait[RM].z = -LiftHeight;
+      Gait[RM].rot_z = Zrot;
+      
+      Gait[RR].x = XmoveDiv4;
+      Gait[RR].y = YmoveDiv4;
+      Gait[RR].z = 0.0F;
+      
+      Gait[LF].x = XmoveDiv2;
+      Gait[LF].y = YmoveDiv2;
+      Gait[LF].z = 0.0F;
+      
+      Gait[LM].x = 0.0F;
+      Gait[LM].y = 0.0F;
+      Gait[LM].z = 0.0F;
+      
+      Gait[LR].x = -XmoveDiv2;
+      Gait[LR].y = -YmoveDiv2;
+      Gait[LR].z = 0.0F;
+      GaitSeq=-1;
+      break;
+      
+    default:
+      GaitSeq=0;
+      break;
   }
+  GaitSeq++;
 }
 
 void loop() {
     
+  //
   /*switch (GaitSeq)
   {
     case 0:
       Gait[RF].x = 0.0F;
-      Gait[RF].y = -12.5F*2.0;
+      Gait[RF].y = -12.5F;
       Gait[RF].z = 0.0F;
       
       Gait[RM].x = 0.0F;
-      Gait[RM].y = 12.5F*2.0;
+      Gait[RM].y = 12.5F;
       Gait[RM].z = 0.0F;
       
       Gait[RR].x = 0.0F;
@@ -429,11 +592,11 @@ void loop() {
       Gait[RR].z = 0.0F;
       
       Gait[LF].x = 0.0F;
-      Gait[LF].y = 6.25F*2.0;
+      Gait[LF].y = 6.25F;
       Gait[LF].z = 0.5F;
       
       Gait[LM].x = 0.0F;
-      Gait[LM].y = -6.25F*2.0;
+      Gait[LM].y = -6.25F;
       Gait[LM].z = 0.0F;
       
       Gait[LR].x = 0.0F;
@@ -447,11 +610,11 @@ void loop() {
       Gait[RF].z = -30.0F;
       
       Gait[RM].x = 0.0F;
-      Gait[RM].y = 6.25F*2.0;
+      Gait[RM].y = 6.25F;
       Gait[RM].z = 0.0F;
       
       Gait[RR].x = 0.0F;
-      Gait[RR].y = -6.25F*2.0;
+      Gait[RR].y = -6.25F;
       Gait[RR].z = 0.0F;
       
       Gait[LF].x = 0.0F;
@@ -459,16 +622,16 @@ void loop() {
       Gait[LF].z = 0.0F;
       
       Gait[LM].x = 0.0F;
-      Gait[LM].y = -12.5F*2.0;
+      Gait[LM].y = -12.5F;
       Gait[LM].z = 0.0F;
       
       Gait[LR].x = 0.0F;
-      Gait[LR].y = 12.5F*2.0;
+      Gait[LR].y = 12.5F;
       Gait[LR].z = 0.0F;
       break;
     case 2:
       Gait[RF].x = 0.0F;
-      Gait[RF].y = 12.5F*2.0;
+      Gait[RF].y = 12.5F;
       Gait[RF].z = 0.0F;
       
       Gait[RM].x = 0.0F;
@@ -476,11 +639,11 @@ void loop() {
       Gait[RM].z = 0.0F;
       
       Gait[RR].x = 0.0F;
-      Gait[RR].y = -12.5F*2.0;
+      Gait[RR].y = -12.5F;
       Gait[RR].z = 0.0F;
       
       Gait[LF].x = 0.0F;
-      Gait[LF].y = -6.25F*2.0;
+      Gait[LF].y = -6.25F;
       Gait[LF].z = 0.0F;
       
       Gait[LM].x = 0.0F;
@@ -488,16 +651,16 @@ void loop() {
       Gait[LM].z = -30.0F;
       
       Gait[LR].x = 0.0F;
-      Gait[LR].y = 6.25F*2.0;
+      Gait[LR].y = 6.25F;
       Gait[LR].z = 0.0F;
       break;
     case 3:
       Gait[RF].x = 0.0F;
-      Gait[RF].y = 6.25F*2.0;
+      Gait[RF].y = 6.25F;
       Gait[RF].z = 0.0F;
       
       Gait[RM].x = 0.0F;
-      Gait[RM].y = -6.25F*2.0;
+      Gait[RM].y = -6.25F;
       Gait[RM].z = 0.0F;
       
       Gait[RR].x = 0.0F;
@@ -505,11 +668,11 @@ void loop() {
       Gait[RR].z = -30.0F;
       
       Gait[LF].x = 0.0F;
-      Gait[LF].y = -12.5F*2.0;
+      Gait[LF].y = -12.5F;
       Gait[LF].z = 0.0F;
       
       Gait[LM].x = 0.0F;
-      Gait[LM].y = 12.5F*2.0;
+      Gait[LM].y = 12.5F;
       Gait[LM].z = 0.0F;
       
       Gait[LR].x = 0.0F;
@@ -522,11 +685,11 @@ void loop() {
       Gait[RF].z = 0.0F;
       
       Gait[RM].x = 0.0F;
-      Gait[RM].y = -12.5F*2.0;
+      Gait[RM].y = -12.5F;
       Gait[RM].z = 0.0F;
       
       Gait[RR].x = 0.0F;
-      Gait[RR].y = 12.5F*2.0;
+      Gait[RR].y = 12.5F;
       Gait[RR].z = 0.0F;
       
       Gait[LF].x = 0.0F;
@@ -534,16 +697,16 @@ void loop() {
       Gait[LF].z = -30.0F;
       
       Gait[LM].x = 0.0F;
-      Gait[LM].y = 6.25F*2.0;
+      Gait[LM].y = 6.25F;
       Gait[LM].z = 0.0F;
       
       Gait[LR].x = 0.0F;
-      Gait[LR].y = -6.25F*2.0;
+      Gait[LR].y = -6.25F;
       Gait[LR].z = 0.0F;
       break;
     case 5:
       Gait[RF].x = 0.0F;
-      Gait[RF].y = -6.25F*2.0;
+      Gait[RF].y = -6.25F;
       Gait[RF].z = 0.0F;
       
       Gait[RM].x = 0.0F;
@@ -551,11 +714,11 @@ void loop() {
       Gait[RM].z = -30.0F;
       
       Gait[RR].x = 0.0F;
-      Gait[RR].y = 6.25F*2.0;
+      Gait[RR].y = 6.25F;
       Gait[RR].z = 0.0F;
       
       Gait[LF].x = 0.0F;
-      Gait[LF].y = 12.5F*2.0;
+      Gait[LF].y = 12.5F;
       Gait[LF].z = 0.0F;
       
       Gait[LM].x = 0.0F;
@@ -563,7 +726,7 @@ void loop() {
       Gait[LM].z = 0.0F;
       
       Gait[LR].x = 0.0F;
-      Gait[LR].y = -12.5F*2.0;
+      Gait[LR].y = -12.5F;
       Gait[LR].z = 0.0F;
       GaitSeq=-1;
       break;
@@ -573,46 +736,38 @@ void loop() {
       break;
   }
   GaitSeq++;*/
-  //bRot;
   
+  /*Gait[RF].x = 5.0F;
+  Gait[RF].y = 11.0F;
+  Gait[RF].z = 17.0F;
+  Gait[RF].rot_z = 3.0F;
   
-  /*if (GaitSeq <= 6)
-  {
-    //bTrans.z += 5.0f;
-    bRot.x += 5.0f;
-    GaitSeq++;
-  }
-  else
-  {
-    GaitSeq = 0;
-    //bTrans.z = -20.0F;
-    bRot.x = -15.0f;
-  }*/
+  Gait[RM].x = 6.0F;
+  Gait[RM].y = 12.0F;
+  Gait[RM].z = 18.0F;
+  Gait[RM].rot_z = 6.0F;
   
-  /*if (GaitSeq <= 10000)
-  {
-    bTrans.x = 30*cosf(2 * 3.1415 * (1.0F / 10.0f) * (float)GaitSeq);
-    bTrans.y = 30*sinf(2 * 3.1415 * (1.0F / 10.0f) * (float)GaitSeq);
-    GaitSeq++;
-  }
-  else
-  {
-    GaitSeq = 0;
-  }*/
+  Gait[RR].x = 7.0F;
+  Gait[RR].y = 13.0F;
+  Gait[RR].z = 19.0F;
+  Gait[RR].rot_z = 9.0F;
   
-  //UpdateGait();
-  bRot.x = 5;
-  bRot.y = 10;
-  bRot.z = 15;
-  bTrans.x = 5;
-  bTrans.y = 10;
-  bTrans.z = 15;
-  Gait[0].x = 1;
-  Gait[0].y = 2;
-  Gait[0].z = 3;
-  Gait[0].rot_z = 10;
-  //bTrans.x = 50;
+  Gait[LF].x = 8.0F;
+  Gait[LF].y = 14.0F;
+  Gait[LF].z = 20.0F;
+  Gait[LF].rot_z = 12.0F;
+  
+  Gait[LM].x = 9.0F;
+  Gait[LM].y = 15.0F;
+  Gait[LM].z = 21.0F;
+  Gait[LM].rot_z = 15.0F;
+  
+  Gait[LR].x = 10.0F;
+  Gait[LR].y = 16.0F;
+  Gait[LR].z = 22.0F;
+  Gait[LR].rot_z = 18.0F;*/
+  UpdateGait();
   UpdateLegs();
   
-  //delay(100);
+  delay(300);
 }
