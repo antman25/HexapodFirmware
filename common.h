@@ -97,7 +97,7 @@ int GaitSeq = 0;
 
 float Xmove = 0.0F;
 float Ymove = 25.0F;
-float Zrot = 30;
+float Zrot = 10;
 float LiftHeight = 30.0F;
 
 #define USBSerial Serial
