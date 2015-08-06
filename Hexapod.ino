@@ -1,6 +1,17 @@
 #include "Arduino.h"
 #include "common.h"
 
+#include <string.h>
+#include <SPI.h>
+#include "utility/debug.h"
+#include "utility/socket.h"
+#include <Adafruit_CC3000.h>
+
+Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT, SPI_CLOCK_DIVIDER);
+Adafruit_CC3000_Server hexapodServer(LISTEN_PORT);
+
+uint32_t startTime;
+
 void MatrixPrint(float* A, int m, int n, char* label){
      // A = input matrix (m x n)
      int i,j;
@@ -236,18 +247,16 @@ LegAngles LegIK(float FeetPosX, float FeetPosY, float FeetPosZ, byte LegNr)
   return result;
 }
 
-void setup() {
-  USBSerial.begin(115200);
-  HWSerial.begin(115200);
-
-  BuildTransforms();
-  InitPositions();
-  delay(3000);
-  HWSerial.write("#0 PO0 #1 PO-25 #2 PO-50 #4 PO0 #5 PO25 #6 PO50 #8 PO0 #9 PO0 #10 PO50 #16 PO0 #17 PO50 #18 PO0 #20 PO0 #21 PO-50 #22 PO-50 #24 PO0 #25 PO50 #26 PO0\r");
-  delay(5000);
+void InitializeCommandBuffer()
+{
+  for (cmd_buffer_ptr = 0; cmd_buffer_ptr < CMD_BUFFER_SIZE;cmd_buffer_ptr++)
+  {
+    cmd_buffer[cmd_buffer_ptr] = 0;
+  }
+  cmd_buffer_ptr = 0;
 }
 
-void InitPositions()
+void InitializePositions()
 {
   for (int i = 0;i<6;i++)
   {
@@ -264,6 +273,40 @@ void InitPositions()
   bTrans.y = 0.0F;
   bTrans.z = 0.0F;
 }
+
+
+void InitializeWifi()
+{
+  USBSerial.print(F("\nAttempting to connect to ")); Serial.println(WLAN_SSID);
+
+  if (!cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY)) 
+  {
+    Serial.println(F("Failed!"));
+    while(1);
+  }
+
+  USBSerial.println(F("Connected!"));
+  USBSerial.println(F("Request DHCP"));
+  while (!cc3000.checkDHCP())
+  {
+    delay(100); // ToDo: Insert a DHCP timeout!
+  }  
+
+  while (! displayConnectionDetails()) 
+  {
+    delay(1000);
+  }
+
+  InitializeCommandBuffer();
+
+  hexapodServer.begin();
+
+  USBSerial.println(F("Listening for connections..."));
+}
+
+
+
+
 
 void UpdateLegs()
 {
@@ -316,7 +359,7 @@ void UpdateLegs()
   
   //USBSerial.println(dtime);
   
-  setLegAngles(angles,300);
+  setLegAngles(angles,120);
 }
 
 void setLegAngles(LegAngles *angles, word wMoveTime)
@@ -405,164 +448,197 @@ void UpdateGait()
   float YmoveDiv2 = Ymove / 2.0f;
   float YmoveDiv4 = Ymove / 4.0f;
   
+  float ZrotDiv2 = Zrot / 2.0f;
+  float ZrotDiv4 = Zrot / 4.0f;
+  
   switch (GaitSeq)
   {
     case 0:
       Gait[RF].x = -XmoveDiv2;
       Gait[RF].y = -YmoveDiv2;
       Gait[RF].z = 0.0F;
+      Gait[RF].rot_z = -ZrotDiv2;
       
       Gait[RM].x = XmoveDiv2;
       Gait[RM].y = YmoveDiv2;
       Gait[RM].z = 0.0F;
+      Gait[RM].rot_z = ZrotDiv2;
       
       Gait[RR].x = 0.0F;
       Gait[RR].y = 0.0F;
       Gait[RR].z = 0.0F;
+      Gait[RR].rot_z = 0.0F;
       
       Gait[LF].x = XmoveDiv4;
       Gait[LF].y = YmoveDiv4;
       Gait[LF].z = 0.0F;
+      Gait[LF].rot_z = ZrotDiv4;
       
       Gait[LM].x = -XmoveDiv4;
       Gait[LM].y = -YmoveDiv4;
       Gait[LM].z = 0.0F;
+      Gait[LM].rot_z = -ZrotDiv4;
       
       Gait[LR].x = 0.0F;
-      Gait[LR].y = 0.0;
+      Gait[LR].y = 0.0F;
       Gait[LR].z = -LiftHeight;
-      Gait[LR].rot_z = Zrot;
+      Gait[LR].rot_z = 0.0F;
 
       break;
     case 1:
       Gait[RF].x = 0.0F;
       Gait[RF].y = 0.0F;
       Gait[RF].z = -LiftHeight;
-      Gait[RF].rot_z = Zrot;
+      Gait[RF].rot_z = 0.0F;
       
       Gait[RM].x = XmoveDiv4;
       Gait[RM].y = YmoveDiv4;
       Gait[RM].z = 0.0F;
+      Gait[RM].rot_z = ZrotDiv4;
       
       Gait[RR].x = -XmoveDiv4;
       Gait[RR].y = -YmoveDiv4;
       Gait[RR].z = 0.0F;
+      Gait[RR].rot_z = -ZrotDiv4;
       
       Gait[LF].x = 0.0F;
       Gait[LF].y = 0.0F;
       Gait[LF].z = 0.0F;
+      Gait[LF].rot_z = 0.0F;
       
       Gait[LM].x = -XmoveDiv2;
       Gait[LM].y = -YmoveDiv2;
       Gait[LM].z = 0.0F;
+      Gait[LM].rot_z = -ZrotDiv2;
       
       Gait[LR].x = XmoveDiv2;
       Gait[LR].y = YmoveDiv2;
       Gait[LR].z = 0.0F;
+      Gait[LR].rot_z = ZrotDiv2;
       break;
     case 2:
       Gait[RF].x = XmoveDiv2;
       Gait[RF].y = YmoveDiv2;
       Gait[RF].z = 0.0F;
+      Gait[RF].rot_z = ZrotDiv2;
       
       Gait[RM].x = 0.0F;
       Gait[RM].y = 0.0F;
       Gait[RM].z = 0.0F;
+      Gait[RM].rot_z = 0.0F;
       
       Gait[RR].x = -XmoveDiv2;
       Gait[RR].y = -YmoveDiv2;
       Gait[RR].z = 0.0F;
+      Gait[RR].rot_z = -ZrotDiv2;
       
       Gait[LF].x = -XmoveDiv4;
       Gait[LF].y = -YmoveDiv4;
       Gait[LF].z = 0.0F;
+      Gait[LF].rot_z = -ZrotDiv4;
       
       Gait[LM].x = 0.0F;
       Gait[LM].y = 0.0F;
       Gait[LM].z = -LiftHeight;
-      Gait[LM].rot_z = Zrot;
+      Gait[LM].rot_z = 0.0F;
       
       Gait[LR].x = XmoveDiv4;
       Gait[LR].y = YmoveDiv4;
       Gait[LR].z = 0.0F;
+      Gait[LR].rot_z = ZrotDiv4;
       break;
     case 3:
       Gait[RF].x = XmoveDiv4;
       Gait[RF].y = YmoveDiv4;
       Gait[RF].z = 0.0F;
+      Gait[RF].rot_z = ZrotDiv4;
       
       Gait[RM].x = -XmoveDiv4;
       Gait[RM].y = -YmoveDiv4;
       Gait[RM].z = 0.0F;
+      Gait[RM].rot_z = -ZrotDiv4;
       
       Gait[RR].x = 0.0F;
       Gait[RR].y = 0.0F;
       Gait[RR].z = -30.0F;
-      Gait[RR].rot_z = Zrot;
+      Gait[RR].rot_z = 0.0F;
       
       Gait[LF].x = -XmoveDiv2;
       Gait[LF].y = -YmoveDiv2;
       Gait[LF].z = 0.0F;
+      Gait[LF].rot_z = -ZrotDiv2;
       
       Gait[LM].x = XmoveDiv2;
       Gait[LM].y = YmoveDiv2;
       Gait[LM].z = 0.0F;
+      Gait[LM].rot_z = ZrotDiv2;
       
       Gait[LR].x = 0.0F;
       Gait[LR].y = 0.0F;
       Gait[LR].z = 0.0F;
+      Gait[LR].rot_z = 0.0F;
       break;
     case 4:
       Gait[RF].x = 0.0F;
       Gait[RF].y = 0.0F;
       Gait[RF].z = 0.0F;
+      Gait[RF].rot_z = 0.0F;
       
       Gait[RM].x = -XmoveDiv2;
       Gait[RM].y = -YmoveDiv2;
       Gait[RM].z = 0.0F;
+      Gait[RM].rot_z = -ZrotDiv2;
       
       Gait[RR].x = XmoveDiv2;
       Gait[RR].y = YmoveDiv2;
       Gait[RR].z = 0.0F;
+      Gait[RR].rot_z = ZrotDiv2;
       
       Gait[LF].x = 0.0F;
       Gait[LF].y = 0.0F;
       Gait[LF].z = -LiftHeight;
-      Gait[LF].rot_z = Zrot;
+      Gait[LF].rot_z = 0.0F;
       
       Gait[LM].x = XmoveDiv4;
       Gait[LM].y = YmoveDiv4;
       Gait[LM].z = 0.0F;
+      Gait[LM].rot_z = ZrotDiv4;
       
       Gait[LR].x = -XmoveDiv4;
       Gait[LR].y = -YmoveDiv4;
       Gait[LR].z = 0.0F;
+      Gait[LR].rot_z = -ZrotDiv4;
       break;
     case 5:
       Gait[RF].x = -XmoveDiv4;
       Gait[RF].y = -YmoveDiv4;
       Gait[RF].z = 0.0F;
+      Gait[RF].rot_z = -ZrotDiv4;
       
       Gait[RM].x = 0.0F;
       Gait[RM].y = 0.0F;
       Gait[RM].z = -LiftHeight;
-      Gait[RM].rot_z = Zrot;
+      Gait[RM].rot_z = 0.0F;
       
       Gait[RR].x = XmoveDiv4;
       Gait[RR].y = YmoveDiv4;
       Gait[RR].z = 0.0F;
+      Gait[RR].rot_z = ZrotDiv4;
       
       Gait[LF].x = XmoveDiv2;
       Gait[LF].y = YmoveDiv2;
       Gait[LF].z = 0.0F;
+      Gait[LF].rot_z = ZrotDiv2;
       
       Gait[LM].x = 0.0F;
       Gait[LM].y = 0.0F;
       Gait[LM].z = 0.0F;
+      Gait[LM].rot_z = 0.0F;
       
       Gait[LR].x = -XmoveDiv2;
       Gait[LR].y = -YmoveDiv2;
       Gait[LR].z = 0.0F;
+      Gait[LR].rot_z = -ZrotDiv2;
       GaitSeq=-1;
       break;
       
@@ -573,201 +649,172 @@ void UpdateGait()
   GaitSeq++;
 }
 
-void loop() {
-    
-  //
-  /*switch (GaitSeq)
+void PrintCharArray(uint8_t* input, uint16_t len)
+{
+  for (uint16_t i = 0;i < len;i++)
   {
-    case 0:
-      Gait[RF].x = 0.0F;
-      Gait[RF].y = -12.5F;
-      Gait[RF].z = 0.0F;
-      
-      Gait[RM].x = 0.0F;
-      Gait[RM].y = 12.5F;
-      Gait[RM].z = 0.0F;
-      
-      Gait[RR].x = 0.0F;
-      Gait[RR].y = 0.0F;
-      Gait[RR].z = 0.0F;
-      
-      Gait[LF].x = 0.0F;
-      Gait[LF].y = 6.25F;
-      Gait[LF].z = 0.5F;
-      
-      Gait[LM].x = 0.0F;
-      Gait[LM].y = -6.25F;
-      Gait[LM].z = 0.0F;
-      
-      Gait[LR].x = 0.0F;
-      Gait[LR].y = 0.0;
-      Gait[LR].z = -30.0F;
-
-      break;
-    case 1:
-      Gait[RF].x = 0.0F;
-      Gait[RF].y = 0.0F;
-      Gait[RF].z = -30.0F;
-      
-      Gait[RM].x = 0.0F;
-      Gait[RM].y = 6.25F;
-      Gait[RM].z = 0.0F;
-      
-      Gait[RR].x = 0.0F;
-      Gait[RR].y = -6.25F;
-      Gait[RR].z = 0.0F;
-      
-      Gait[LF].x = 0.0F;
-      Gait[LF].y = 0.0F;
-      Gait[LF].z = 0.0F;
-      
-      Gait[LM].x = 0.0F;
-      Gait[LM].y = -12.5F;
-      Gait[LM].z = 0.0F;
-      
-      Gait[LR].x = 0.0F;
-      Gait[LR].y = 12.5F;
-      Gait[LR].z = 0.0F;
-      break;
-    case 2:
-      Gait[RF].x = 0.0F;
-      Gait[RF].y = 12.5F;
-      Gait[RF].z = 0.0F;
-      
-      Gait[RM].x = 0.0F;
-      Gait[RM].y = 0.0F;
-      Gait[RM].z = 0.0F;
-      
-      Gait[RR].x = 0.0F;
-      Gait[RR].y = -12.5F;
-      Gait[RR].z = 0.0F;
-      
-      Gait[LF].x = 0.0F;
-      Gait[LF].y = -6.25F;
-      Gait[LF].z = 0.0F;
-      
-      Gait[LM].x = 0.0F;
-      Gait[LM].y = 0.0F;
-      Gait[LM].z = -30.0F;
-      
-      Gait[LR].x = 0.0F;
-      Gait[LR].y = 6.25F;
-      Gait[LR].z = 0.0F;
-      break;
-    case 3:
-      Gait[RF].x = 0.0F;
-      Gait[RF].y = 6.25F;
-      Gait[RF].z = 0.0F;
-      
-      Gait[RM].x = 0.0F;
-      Gait[RM].y = -6.25F;
-      Gait[RM].z = 0.0F;
-      
-      Gait[RR].x = 0.0F;
-      Gait[RR].y = 0.0F;
-      Gait[RR].z = -30.0F;
-      
-      Gait[LF].x = 0.0F;
-      Gait[LF].y = -12.5F;
-      Gait[LF].z = 0.0F;
-      
-      Gait[LM].x = 0.0F;
-      Gait[LM].y = 12.5F;
-      Gait[LM].z = 0.0F;
-      
-      Gait[LR].x = 0.0F;
-      Gait[LR].y = 0.0F;
-      Gait[LR].z = 0.0F;
-      break;
-    case 4:
-      Gait[RF].x = 0.0F;
-      Gait[RF].y = 0.0F;
-      Gait[RF].z = 0.0F;
-      
-      Gait[RM].x = 0.0F;
-      Gait[RM].y = -12.5F;
-      Gait[RM].z = 0.0F;
-      
-      Gait[RR].x = 0.0F;
-      Gait[RR].y = 12.5F;
-      Gait[RR].z = 0.0F;
-      
-      Gait[LF].x = 0.0F;
-      Gait[LF].y = 0.0F;
-      Gait[LF].z = -30.0F;
-      
-      Gait[LM].x = 0.0F;
-      Gait[LM].y = 6.25F;
-      Gait[LM].z = 0.0F;
-      
-      Gait[LR].x = 0.0F;
-      Gait[LR].y = -6.25F;
-      Gait[LR].z = 0.0F;
-      break;
-    case 5:
-      Gait[RF].x = 0.0F;
-      Gait[RF].y = -6.25F;
-      Gait[RF].z = 0.0F;
-      
-      Gait[RM].x = 0.0F;
-      Gait[RM].y = 0.0F;
-      Gait[RM].z = -30.0F;
-      
-      Gait[RR].x = 0.0F;
-      Gait[RR].y = 6.25F;
-      Gait[RR].z = 0.0F;
-      
-      Gait[LF].x = 0.0F;
-      Gait[LF].y = 12.5F;
-      Gait[LF].z = 0.0F;
-      
-      Gait[LM].x = 0.0F;
-      Gait[LM].y = 0.0F;
-      Gait[LM].z = 0.0F;
-      
-      Gait[LR].x = 0.0F;
-      Gait[LR].y = -12.5F;
-      Gait[LR].z = 0.0F;
-      GaitSeq=-1;
-      break;
-      
-    default:
-      GaitSeq=0;
-      break;
+    hexapodServer.write(input[i]);
   }
-  GaitSeq++;*/
+}
+
+void GetWifiData()
+{
+  Adafruit_CC3000_ClientRef client = hexapodServer.available();
+        
+  if (client) 
+  {
+    // Check if there is data available to read.
+    if (client.available() > 0) 
+    {
+      // Read a byte and write it to all clients.
+      uint8_t ch = client.read();
+      if (ch == '\n')
+      {
+        //hexapodServer.write(ch);
+  	//Serial.println(F("Processing command"));
+        ProcessCommand();
+      }
+      else
+      {
+        cmd_buffer[cmd_buffer_ptr++] = ch;
+      }
+      //String strCmdBuffer = String((char*)cmd_buffer);
+      //USBSerial.println("Len: " + String(cmd_buffer_ptr));
+    }
+  }
+}
+
+void ProcessCommand()
+{
+	//hexapodServer.print("Processing: ");
+	//PrintCharArray(cmd_buffer,cmd_buffer_ptr);
+	//hexapodServer.println("");
+
+	uint8_t cmdByte = cmd_buffer[0];
+	uint16_t cmdLen = (cmd_buffer[1] << 8) | cmd_buffer[2];
+	String strCmdBuffer = String((char*)cmd_buffer);
+	
+	switch (cmdByte)
+	{
+		case 'I':
+			USBSerial.println(F("Setting all positions to 1500"));
+			HWSerial.write("#0 P1500 #1 P1500 #2 P1500 #4 P1500 #5 P1500 #6 P1500 #8 P1500 #9 P1500 #10 P1500 #16 P1500 #17 P1500 #18 P1500 #20 P1500 #21 P1500 #22 P1500 #24 P1500 #25 P1500 #26 P1500 T1000\r");
+			break;
+		case 'R':
+			USBSerial.println(F("Setting all offsets to 0"));
+			HWSerial.write("#0 PO0 #1 PO0 #2 PO0 #4 PO0 #5 PO0 #6 PO0 #8 PO0 #9 PO0 #10 PO0 #16 PO0 #17 PO0 #18 PO0 #20 PO0 #21 PO0 #22 PO0 #24 PO0 #25 PO0 #26 PO0\r");
+			break;
+		case 'N':
+			USBSerial.println(F("Initializing hexapod positions"));
+			InitializePositions();
+			break;
+		case 'S':
+			USBSerial.println(F("-----SSC Command-----"));
+			USBSerial.println(strCmdBuffer);
+			//for (int i = 1;i<cmd_buffer_ptr;i++)
+			//	USBSerial.write(cmd_buffer[i]);
+
+			//USBSerial.print("Command Len: ");
+			//USBSerial.print(cmdLen);
+			
+			//USBSerial.write(&cmd_buffer+1,cmd_buffer_ptr-1);
+			for (int i = 1;i<cmd_buffer_ptr;i++)
+				HWSerial.write(cmd_buffer[i]);
+			
+			break;
+		default:
+			USBSerial.println(F("Unknown Command"));
+			PrintCharArray(cmd_buffer,cmd_buffer_ptr);
+	}
+
+	InitializeCommandBuffer();
+}
+
+
+bool displayConnectionDetails(void)
+{
+  uint32_t ipAddress, netmask, gateway, dhcpserv, dnsserv;
+ 
+  if(!cc3000.getIPAddress(&ipAddress, &netmask, &gateway, &dhcpserv, &dnsserv))
+  {
+    Serial.println(F("Unable to retrieve the IP Address!\r\n"));
+    return false;
+  }
+  else
+  {
+    Serial.print(F("\nIP Addr: ")); cc3000.printIPdotsRev(ipAddress);
+    Serial.print(F("\n Netmask: ")); cc3000.printIPdotsRev(netmask);
+    Serial.print(F("\n Gateway: ")); cc3000.printIPdotsRev(gateway);
+    Serial.print(F("\n DHCPsrv: ")); cc3000.printIPdotsRev(dhcpserv);
+    Serial.print(F("\n DNSserv: ")); cc3000.printIPdotsRev(dnsserv);
+    Serial.println();
+    return true;
+  }
+}
+ 
+void setup() {
+  USBSerial.begin(115200);
+  HWSerial.begin(115200);
+
+  BuildTransforms();
+  InitializePositions();
+  //InitializeWifi();
+  delay(3000);
+  HWSerial.write("#0 PO0 #1 PO-25 #2 PO-50 #4 PO0 #5 PO25 #6 PO50 #8 PO0 #9 PO0 #10 PO50 #16 PO0 #17 PO50 #18 PO0 #20 PO0 #21 PO-50 #22 PO-50 #24 PO0 #25 PO50 #26 PO0\r");
+  delay(5000);
+  startTime = millis();
+}
+
+void loop() 
+{
+  uint32_t deltaTime = millis() - startTime;
+  if (deltaTime < 10000)
+  {
+    Xmove = 0.0F;
+    Ymove = 25.0F;
+    Zrot = 0;
+  }
+  else if (deltaTime >= 10000 && deltaTime < 20000)
+  {
+    Xmove = 25.0F;
+    Ymove = 25.0F;
+    Zrot = 0;
+  }
+  else if (deltaTime >= 20000 && deltaTime < 30000)
+  {
+    Xmove = -25.0F;
+    Ymove = -25.0F;
+    Zrot = 0;
+  }
+  else if (deltaTime >= 30000 && deltaTime < 40000)
+  {
+    Xmove = 25.0F;
+    Ymove = 0.0F;
+    Zrot = 0;
+  }
+  else if (deltaTime >= 40000 && deltaTime < 50000)
+  {
+    Xmove = -25.0F;
+    Ymove = 0.0F;
+    Zrot = 0;
+  }
+  else if (deltaTime >= 50000 && deltaTime < 75000)
+  {
+    Xmove = 0.0F;
+    Ymove = 25.0F;
+    Zrot = 5.0f;
+  }
+  else if (deltaTime >= 75000)
+  {
+    Xmove = 0.0F;
+    Ymove = 0.0F;
+    Zrot = 20.0f;
+  }
   
-  /*Gait[RF].x = 5.0F;
-  Gait[RF].y = 11.0F;
-  Gait[RF].z = 17.0F;
-  Gait[RF].rot_z = 3.0F;
-  
-  Gait[RM].x = 6.0F;
-  Gait[RM].y = 12.0F;
-  Gait[RM].z = 18.0F;
-  Gait[RM].rot_z = 6.0F;
-  
-  Gait[RR].x = 7.0F;
-  Gait[RR].y = 13.0F;
-  Gait[RR].z = 19.0F;
-  Gait[RR].rot_z = 9.0F;
-  
-  Gait[LF].x = 8.0F;
-  Gait[LF].y = 14.0F;
-  Gait[LF].z = 20.0F;
-  Gait[LF].rot_z = 12.0F;
-  
-  Gait[LM].x = 9.0F;
-  Gait[LM].y = 15.0F;
-  Gait[LM].z = 21.0F;
-  Gait[LM].rot_z = 15.0F;
-  
-  Gait[LR].x = 10.0F;
-  Gait[LR].y = 16.0F;
-  Gait[LR].z = 22.0F;
-  Gait[LR].rot_z = 18.0F;*/
   UpdateGait();
   UpdateLegs();
+  delay(5);
   
-  delay(300);
+  
+  //GetWifiData();
 }

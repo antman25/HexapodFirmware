@@ -1,3 +1,5 @@
+
+
 struct LegAngles
 {
   float CoxaAngle;
@@ -97,7 +99,7 @@ int GaitSeq = 0;
 
 float Xmove = 0.0F;
 float Ymove = 25.0F;
-float Zrot = 30;
+float Zrot = 0.0F;
 float LiftHeight = 30.0F;
 
 #define USBSerial Serial
@@ -114,3 +116,32 @@ float LiftHeight = 30.0F;
 #define MOVING   ((Xspeed > 5 || Xspeed < -5) || (Yspeed > 5 || Yspeed < -5) || (Rspeed > 0.05 || Rspeed < -0.05))
 
 #define STD_TRANSITION          100
+
+
+// These are the interrupt and control pins
+#define ADAFRUIT_CC3000_IRQ   3  // MUST be an interrupt pin!
+// These can be any two pins
+#define ADAFRUIT_CC3000_VBAT  4
+#define ADAFRUIT_CC3000_CS    10
+// Use hardware SPI for the remaining pins
+// On an UNO, SCK = 13, MISO = 12, and MOSI = 11
+
+
+
+
+
+#define WLAN_SSID       "hippo"
+#define WLAN_PASS       "rhinotruck"
+
+#define WLAN_SECURITY           WLAN_SEC_WPA2
+
+#define LISTEN_PORT             5555    // What TCP port to listen on for connections.
+
+
+#define CMD_BUFFER_SIZE         512
+
+size_t cmd_buffer_ptr = 0;
+uint8_t cmd_buffer[CMD_BUFFER_SIZE];
+char *cmd_buffer_test;
+
+
