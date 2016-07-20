@@ -1,18 +1,23 @@
 #include "Arduino.h"
 #include "common.h"
 
+#include <string.h>
+#include <SPI.h>
+
+uint32_t startTime;
+
 void MatrixPrint(float* A, int m, int n, char* label){
      // A = input matrix (m x n)
      int i,j;
-     Serial.println(label);
-     Serial.println(" Matrix values:");
+     USBSerial.println(label);
+     USBSerial.println(" Matrix values:");
      for (i=0; i<m; i++){
            for (j=0;j<n;j++){
-                 Serial.print(A[n*i+j]);
-                 Serial.print("; i=");
-                 Serial.print(i);
-                 Serial.print(" j=");
-                 Serial.println(j);
+                 USBSerial.print(A[n*i+j]);
+                 USBSerial.print("; i=");
+                 USBSerial.print(i);
+                 USBSerial.print(" j=");
+                 USBSerial.println(j);
            }
      }
 }
@@ -236,18 +241,16 @@ LegAngles LegIK(float FeetPosX, float FeetPosY, float FeetPosZ, byte LegNr)
   return result;
 }
 
-void setup() {
-  USBSerial.begin(115200);
-  HWSerial.begin(115200);
-
-  BuildTransforms();
-  InitPositions();
-  delay(3000);
-  HWSerial.write("#0 PO0 #1 PO-25 #2 PO-50 #4 PO0 #5 PO25 #6 PO50 #8 PO0 #9 PO0 #10 PO50 #16 PO0 #17 PO50 #18 PO0 #20 PO0 #21 PO-50 #22 PO-50 #24 PO0 #25 PO50 #26 PO0\r");
-  delay(5000);
+void InitializeCommandBuffer()
+{
+  for (cmd_buffer_ptr = 0; cmd_buffer_ptr < CMD_BUFFER_SIZE;cmd_buffer_ptr++)
+  {
+    cmd_buffer[cmd_buffer_ptr] = 0;
+  }
+  cmd_buffer_ptr = 0;
 }
 
-void InitPositions()
+void InitializePositions()
 {
   for (int i = 0;i<6;i++)
   {
@@ -316,7 +319,7 @@ void UpdateLegs()
   
   //USBSerial.println(dtime);
   
-  setLegAngles(angles,300);
+  setLegAngles(angles,120);
 }
 
 void setLegAngles(LegAngles *angles, word wMoveTime)
@@ -350,22 +353,22 @@ void setLegAngles(LegAngles *angles, word wMoveTime)
       wTibiaSSCV = AngleToPWM(angles[i].TibiaAngle);
     }
   
-    HWSerial.print("#");
-    HWSerial.print(pgm_read_byte(&CoxaPin[i]), DEC);
-    HWSerial.print("P");
-    HWSerial.print(wCoxaSSCV, DEC);
-    HWSerial.print("#");
-    HWSerial.print(pgm_read_byte(&FemurPin[i]), DEC);
-    HWSerial.print("P");
-    HWSerial.print(wFemurSSCV, DEC);
-    HWSerial.print("#");
-    HWSerial.print(pgm_read_byte(&TibiaPin[i]), DEC);
-    HWSerial.print("P");
-    HWSerial.print(wTibiaSSCV, DEC);
+    SSC32Serial.print("#");
+    SSC32Serial.print(pgm_read_byte(&CoxaPin[i]), DEC);
+    SSC32Serial.print("P");
+    SSC32Serial.print(wCoxaSSCV, DEC);
+    SSC32Serial.print("#");
+    SSC32Serial.print(pgm_read_byte(&FemurPin[i]), DEC);
+    SSC32Serial.print("P");
+    SSC32Serial.print(wFemurSSCV, DEC);
+    SSC32Serial.print("#");
+    SSC32Serial.print(pgm_read_byte(&TibiaPin[i]), DEC);
+    SSC32Serial.print("P");
+    SSC32Serial.print(wTibiaSSCV, DEC);
   }
-  USBSerial.println("");
-  HWSerial.print("T");
-  HWSerial.println(wMoveTime, DEC);
+  //USBSerial.println("");
+  SSC32Serial.print("T");
+  SSC32Serial.println(wMoveTime, DEC);
   SSC32Wait(wMoveTime);
 }
 
@@ -378,11 +381,11 @@ void SSC32Wait(word wMoveTime)
   //for (uint16_t count = 0;count < 16000;count++)
   /*while (1)
   {
-    HWSerial.write("Q \r");
+    SSC32Serial.write("Q \r");
     delay(1);
-    if (HWSerial.available() > 0) 
+    if (SSC32Serial.available() > 0) 
     {
-      char incomingByte = HWSerial.read();
+      char incomingByte = SSC32Serial.read();
       //USBSerial.println(incomingByte);
       if (incomingByte == '.')
       {
@@ -517,7 +520,7 @@ void UpdateGait()
       
       Gait[RR].x = 0.0F;
       Gait[RR].y = 0.0F;
-      Gait[RR].z = -30.0F;
+      Gait[RR].z = -LiftHeight;
       Gait[RR].rot_z = 0.0F;
       
       Gait[LF].x = -XmoveDiv2;
@@ -606,201 +609,175 @@ void UpdateGait()
   GaitSeq++;
 }
 
-void loop() {
-    
-  //
-  /*switch (GaitSeq)
+void GetBlueToothData()
+{
+  int rd = BlueToothSerial.available();
+  if (rd > 0) 
   {
-    case 0:
-      Gait[RF].x = 0.0F;
-      Gait[RF].y = -12.5F;
-      Gait[RF].z = 0.0F;
-      
-      Gait[RM].x = 0.0F;
-      Gait[RM].y = 12.5F;
-      Gait[RM].z = 0.0F;
-      
-      Gait[RR].x = 0.0F;
-      Gait[RR].y = 0.0F;
-      Gait[RR].z = 0.0F;
-      
-      Gait[LF].x = 0.0F;
-      Gait[LF].y = 6.25F;
-      Gait[LF].z = 0.5F;
-      
-      Gait[LM].x = 0.0F;
-      Gait[LM].y = -6.25F;
-      Gait[LM].z = 0.0F;
-      
-      Gait[LR].x = 0.0F;
-      Gait[LR].y = 0.0;
-      Gait[LR].z = -30.0F;
+    byte tmp_buffer[80];
+    int n = BlueToothSerial.readBytes((byte *)tmp_buffer, rd);
+    USBSerial.println(F("Getting Data"));
+    //ProcessBuffer((byte *)cmd_buffer,n);
+    for (int i =0;i<n;i++)
+    {
+      if (tmp_buffer[i] != '\n')
+      {
+        cmd_buffer[cmd_buffer_ptr++] = tmp_buffer[i];
+      }
+      else
+      {
+        USBSerial.println(F("Process"));
+        ProcessBuffer();
+      }
+    }
+  }
+}
 
+float getFloatBuffer(int start_pos)
+{
+  float2bytes f2b;
+  f2b.b[0] = cmd_buffer[start_pos+3];
+  //Serial.println(f2b.b[0],HEX);
+  f2b.b[1] = cmd_buffer[start_pos+2];
+  //Serial.println(f2b.b[1],HEX);
+  f2b.b[2] = cmd_buffer[start_pos+1];
+  //Serial.println(f2b.b[2],HEX);
+  f2b.b[3] = cmd_buffer[start_pos];
+  ///Serial.println(f2b.b[3],HEX);
+  //Serial.println(f2b.f,4);
+  return f2b.f;
+  /*float f;
+  uint8_t *p = (uint8_t*)&f;
+  for (int i = 0;i<4;i++)
+  {
+    p[i] = cmd_buffer[start_pos+i];
+  }
+  return f;*/
+}
+
+void ProcessBuffer()
+{
+  byte cmd_byte = cmd_buffer[0];
+  switch (cmd_byte)
+  {
+    case '%':
+      Serial.println(F("BlueTooth Cmd"));
       break;
-    case 1:
-      Gait[RF].x = 0.0F;
-      Gait[RF].y = 0.0F;
-      Gait[RF].z = -30.0F;
-      
-      Gait[RM].x = 0.0F;
-      Gait[RM].y = 6.25F;
-      Gait[RM].z = 0.0F;
-      
-      Gait[RR].x = 0.0F;
-      Gait[RR].y = -6.25F;
-      Gait[RR].z = 0.0F;
-      
-      Gait[LF].x = 0.0F;
-      Gait[LF].y = 0.0F;
-      Gait[LF].z = 0.0F;
-      
-      Gait[LM].x = 0.0F;
-      Gait[LM].y = -12.5F;
-      Gait[LM].z = 0.0F;
-      
-      Gait[LR].x = 0.0F;
-      Gait[LR].y = 12.5F;
-      Gait[LR].z = 0.0F;
+    case 'R':
+      Serial.println(F("Setting Rot"));
+      bRot.x = getFloatBuffer(1);
+      bRot.y = getFloatBuffer(5);
+      bRot.z = getFloatBuffer(9);
       break;
-    case 2:
-      Gait[RF].x = 0.0F;
-      Gait[RF].y = 12.5F;
-      Gait[RF].z = 0.0F;
-      
-      Gait[RM].x = 0.0F;
-      Gait[RM].y = 0.0F;
-      Gait[RM].z = 0.0F;
-      
-      Gait[RR].x = 0.0F;
-      Gait[RR].y = -12.5F;
-      Gait[RR].z = 0.0F;
-      
-      Gait[LF].x = 0.0F;
-      Gait[LF].y = -6.25F;
-      Gait[LF].z = 0.0F;
-      
-      Gait[LM].x = 0.0F;
-      Gait[LM].y = 0.0F;
-      Gait[LM].z = -30.0F;
-      
-      Gait[LR].x = 0.0F;
-      Gait[LR].y = 6.25F;
-      Gait[LR].z = 0.0F;
+    case 'T':
+      Serial.println(F("Setting Trans"));
+      bTrans.x = getFloatBuffer(1);
+      bTrans.y = getFloatBuffer(5);
+      bTrans.z = getFloatBuffer(9);
       break;
-    case 3:
-      Gait[RF].x = 0.0F;
-      Gait[RF].y = 6.25F;
-      Gait[RF].z = 0.0F;
-      
-      Gait[RM].x = 0.0F;
-      Gait[RM].y = -6.25F;
-      Gait[RM].z = 0.0F;
-      
-      Gait[RR].x = 0.0F;
-      Gait[RR].y = 0.0F;
-      Gait[RR].z = -30.0F;
-      
-      Gait[LF].x = 0.0F;
-      Gait[LF].y = -12.5F;
-      Gait[LF].z = 0.0F;
-      
-      Gait[LM].x = 0.0F;
-      Gait[LM].y = 12.5F;
-      Gait[LM].z = 0.0F;
-      
-      Gait[LR].x = 0.0F;
-      Gait[LR].y = 0.0F;
-      Gait[LR].z = 0.0F;
-      break;
-    case 4:
-      Gait[RF].x = 0.0F;
-      Gait[RF].y = 0.0F;
-      Gait[RF].z = 0.0F;
-      
-      Gait[RM].x = 0.0F;
-      Gait[RM].y = -12.5F;
-      Gait[RM].z = 0.0F;
-      
-      Gait[RR].x = 0.0F;
-      Gait[RR].y = 12.5F;
-      Gait[RR].z = 0.0F;
-      
-      Gait[LF].x = 0.0F;
-      Gait[LF].y = 0.0F;
-      Gait[LF].z = -30.0F;
-      
-      Gait[LM].x = 0.0F;
-      Gait[LM].y = 6.25F;
-      Gait[LM].z = 0.0F;
-      
-      Gait[LR].x = 0.0F;
-      Gait[LR].y = -6.25F;
-      Gait[LR].z = 0.0F;
-      break;
-    case 5:
-      Gait[RF].x = 0.0F;
-      Gait[RF].y = -6.25F;
-      Gait[RF].z = 0.0F;
-      
-      Gait[RM].x = 0.0F;
-      Gait[RM].y = 0.0F;
-      Gait[RM].z = -30.0F;
-      
-      Gait[RR].x = 0.0F;
-      Gait[RR].y = 6.25F;
-      Gait[RR].z = 0.0F;
-      
-      Gait[LF].x = 0.0F;
-      Gait[LF].y = 12.5F;
-      Gait[LF].z = 0.0F;
-      
-      Gait[LM].x = 0.0F;
-      Gait[LM].y = 0.0F;
-      Gait[LM].z = 0.0F;
-      
-      Gait[LR].x = 0.0F;
-      Gait[LR].y = -12.5F;
-      Gait[LR].z = 0.0F;
-      GaitSeq=-1;
-      break;
-      
-    default:
-      GaitSeq=0;
+    case 'G':
+      Serial.println(F("Setting Gait"));
+      Xmove = getFloatBuffer(1);
+      //Serial.println(Xmove,2 );
+      Ymove = getFloatBuffer(5);
+      //Serial.println(Ymove,2);
+      Zrot = getFloatBuffer(9);
+      //Serial.println(Zrot,2);
+      LiftHeight = getFloatBuffer(13);
+      Serial.println(LiftHeight,2);
       break;
   }
-  GaitSeq++;*/
-  
-  /*Gait[RF].x = 5.0F;
-  Gait[RF].y = 11.0F;
-  Gait[RF].z = 17.0F;
-  Gait[RF].rot_z = 3.0F;
-  
-  Gait[RM].x = 6.0F;
-  Gait[RM].y = 12.0F;
-  Gait[RM].z = 18.0F;
-  Gait[RM].rot_z = 6.0F;
-  
-  Gait[RR].x = 7.0F;
-  Gait[RR].y = 13.0F;
-  Gait[RR].z = 19.0F;
-  Gait[RR].rot_z = 9.0F;
-  
-  Gait[LF].x = 8.0F;
-  Gait[LF].y = 14.0F;
-  Gait[LF].z = 20.0F;
-  Gait[LF].rot_z = 12.0F;
-  
-  Gait[LM].x = 9.0F;
-  Gait[LM].y = 15.0F;
-  Gait[LM].z = 21.0F;
-  Gait[LM].rot_z = 15.0F;
-  
-  Gait[LR].x = 10.0F;
-  Gait[LR].y = 16.0F;
-  Gait[LR].z = 22.0F;
-  Gait[LR].rot_z = 18.0F;*/
+  InitializeCommandBuffer();
+}
+
+void BlueToothSetup()
+{
+  BlueToothSerial.print("$$$");
+  delay(400);
+  BlueToothSerial.print("S~,5\r");
+  delay(400);
+  BlueToothSerial.print("SN,LINK\r");
+  delay(400);
+  BlueToothSerial.print("SC,0024\r");
+  delay(400);
+  BlueToothSerial.print("SD,0704\r");
+  delay(400);
+  BlueToothSerial.print("ST,253\r");
+  delay(400);
+  BlueToothSerial.print("SO,%\r");
+  delay(400);
+  BlueToothSerial.print("T,1\r");
+  delay(400);
+  BlueToothSerial.print("SM,0\r");
+  delay(400);
+  BlueToothSerial.print("SA,2\r");
+  delay(400);
+  BlueToothSerial.print("---\r");
+}
+ 
+void setup() {
+  USBSerial.begin(115200);
+  SSC32Serial.begin(115200);
+  BlueToothSerial.begin(115200);
+  delay(1000);
+  //BlueToothSetup();
+  BuildTransforms();
+  InitializePositions();
+  InitializeCommandBuffer();
+  SSC32Serial.write("#0 PO0 #1 PO-25 #2 PO-50 #4 PO0 #5 PO25 #6 PO50 #8 PO0 #9 PO0 #10 PO50 #16 PO0 #17 PO50 #18 PO0 #20 PO0 #21 PO-50 #22 PO-50 #24 PO0 #25 PO50 #26 PO0\r");
+  delay(5000);
+  startTime = millis();
+  USBSerial.println("Robot Start");
+
+}
+
+void loop() 
+{
+  /*uint32_t deltaTime = millis() - startTime;
+  if (deltaTime < 10000)
+  {
+    Xmove = 0.0F;
+    Ymove = 50.0F;
+    Zrot = 0;
+  }
+  else if (deltaTime >= 10000 && deltaTime < 20000)
+  {
+    Xmove = 50.0F;
+    Ymove = 50.0F;
+    Zrot = 0;
+  }
+  else if (deltaTime >= 20000 && deltaTime < 30000)
+  {
+    Xmove = -50.0F;
+    Ymove = -50.0F;
+    Zrot = 0;
+  }
+  else if (deltaTime >= 30000 && deltaTime < 40000)
+  {
+    Xmove = 50.0F;
+    Ymove = 0.0F;
+    Zrot = 0;
+  }
+  else if (deltaTime >= 40000 && deltaTime < 50000)
+  {
+    Xmove = -50.0F;
+    Ymove = 0.0F;
+    Zrot = 0;
+  }
+  else if (deltaTime >= 50000 && deltaTime < 75000)
+  {
+    Xmove = 0.0F;
+    Ymove = 50.0F;
+    Zrot = 5.0f;
+  }
+  else if (deltaTime >= 75000)
+  {
+    Xmove = 0.0F;
+    Ymove = 0.0F;
+    Zrot = 20.0f;
+  }*/
+  GetBlueToothData();
   UpdateGait();
   UpdateLegs();
-  
-  delay(300);
+  //delay(5);
 }

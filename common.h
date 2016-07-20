@@ -1,3 +1,5 @@
+
+
 struct LegAngles
 {
   float CoxaAngle;
@@ -96,14 +98,13 @@ BodyTranslate bTrans;
 int GaitSeq = 0;
 
 float Xmove = 0.0F;
-float Ymove = 25.0F;
-float Zrot = 10;
-float LiftHeight = 30.0F;
+float Ymove = 0.0F;
+float Zrot = 0.0F;
+float LiftHeight = 0.0F;
 
 #define USBSerial Serial
-#define HWSerial Serial1
-
-
+#define SSC32Serial Serial1
+#define BlueToothSerial Serial2
 
 #define RIPPLE                  0
 #define RIPPLE_SMOOTH           1
@@ -114,3 +115,12 @@ float LiftHeight = 30.0F;
 #define MOVING   ((Xspeed > 5 || Xspeed < -5) || (Yspeed > 5 || Yspeed < -5) || (Rspeed > 0.05 || Rspeed < -0.05))
 
 #define STD_TRANSITION          100
+
+#define CMD_BUFFER_SIZE         512
+
+size_t cmd_buffer_ptr = 0;
+uint8_t cmd_buffer[CMD_BUFFER_SIZE];
+char *cmd_buffer_test;
+
+union float2bytes { byte b[sizeof(float)]; float f; };
+
