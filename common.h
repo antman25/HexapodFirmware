@@ -101,6 +101,8 @@ float Xmove = 0.0F;
 float Ymove = 0.0F;
 float Zrot = 0.0F;
 float LiftHeight = 0.0F;
+float sensorDistanceV = 0.0F;
+float sensorDistanceCM = 0.0F;
 
 #define USBSerial Serial
 #define SSC32Serial Serial1
@@ -123,4 +125,5 @@ uint8_t cmd_buffer[CMD_BUFFER_SIZE];
 char *cmd_buffer_test;
 
 union float2bytes { byte b[sizeof(float)]; float f; };
+
 
