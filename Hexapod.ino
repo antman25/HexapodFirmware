@@ -609,6 +609,28 @@ void UpdateGait()
   GaitSeq++;
 }
 
+void BlueToothSetup()
+{
+  BlueToothSerial.print("$$$");
+  delay(400);
+  BlueToothSerial.print("S~,5\r");
+  delay(400);
+  BlueToothSerial.print("SN,LINK\r");
+  delay(400);
+  BlueToothSerial.print("ST,253\r");
+  delay(400);
+  BlueToothSerial.print("SO,%\r");
+  delay(400);
+  BlueToothSerial.print("T,1\r");
+  delay(400);
+  BlueToothSerial.print("SM,0\r");
+  delay(400);
+  BlueToothSerial.print("SA,2\r");
+  delay(400);
+  BlueToothSerial.print("---\r");
+}
+     
+
 void GetBlueToothData()
 {
   int rd = BlueToothSerial.available();
@@ -616,7 +638,7 @@ void GetBlueToothData()
   {
     byte tmp_buffer[80];
     int n = BlueToothSerial.readBytes((byte *)tmp_buffer, rd);
-    USBSerial.println(F("Getting Data"));
+    //USBSerial.println(F("Getting Data"));
     //ProcessBuffer((byte *)cmd_buffer,n);
     for (int i =0;i<n;i++)
     {
@@ -626,7 +648,7 @@ void GetBlueToothData()
       }
       else
       {
-        USBSerial.println(F("Process"));
+        //USBSerial.println(F("Process"));
         ProcessBuffer();
       }
     }
@@ -658,25 +680,35 @@ float getFloatBuffer(int start_pos)
 void ProcessBuffer()
 {
   byte cmd_byte = cmd_buffer[0];
+  
   switch (cmd_byte)
   {
+    case 'S':
+      //BlueToothSerial.print("V=");
+      //BlueToothSerial.println(sensorDistanceV,2);
+      //BlueToothSerial.print("Dist=");
+      BlueToothSerial.print(sensorDistanceCM,2);
+      BlueToothSerial.print("\n");
+      break;
     case '%':
-      Serial.println(F("BlueTooth Cmd"));
+      
+      //Serial.println(F("BlueTooth Cmd"));
+      
       break;
     case 'R':
-      Serial.println(F("Setting Rot"));
+      //Serial.println(F("Setting Rot"));
       bRot.x = getFloatBuffer(1);
       bRot.y = getFloatBuffer(5);
       bRot.z = getFloatBuffer(9);
       break;
     case 'T':
-      Serial.println(F("Setting Trans"));
+      //Serial.println(F("Setting Trans"));
       bTrans.x = getFloatBuffer(1);
       bTrans.y = getFloatBuffer(5);
       bTrans.z = getFloatBuffer(9);
       break;
     case 'G':
-      Serial.println(F("Setting Gait"));
+      //Serial.println(F("Setting Gait"));
       Xmove = getFloatBuffer(1);
       //Serial.println(Xmove,2 );
       Ymove = getFloatBuffer(5);
@@ -684,50 +716,26 @@ void ProcessBuffer()
       Zrot = getFloatBuffer(9);
       //Serial.println(Zrot,2);
       LiftHeight = getFloatBuffer(13);
-      Serial.println(LiftHeight,2);
+      //Serial.println(LiftHeight,2);
       break;
   }
   InitializeCommandBuffer();
 }
 
-void BlueToothSetup()
-{
-  BlueToothSerial.print("$$$");
-  delay(400);
-  BlueToothSerial.print("S~,5\r");
-  delay(400);
-  BlueToothSerial.print("SN,LINK\r");
-  delay(400);
-  BlueToothSerial.print("SC,0024\r");
-  delay(400);
-  BlueToothSerial.print("SD,0704\r");
-  delay(400);
-  BlueToothSerial.print("ST,253\r");
-  delay(400);
-  BlueToothSerial.print("SO,%\r");
-  delay(400);
-  BlueToothSerial.print("T,1\r");
-  delay(400);
-  BlueToothSerial.print("SM,0\r");
-  delay(400);
-  BlueToothSerial.print("SA,2\r");
-  delay(400);
-  BlueToothSerial.print("---\r");
-}
  
 void setup() {
   USBSerial.begin(115200);
   SSC32Serial.begin(115200);
   BlueToothSerial.begin(115200);
-  delay(1000);
+  delay(100);
   //BlueToothSetup();
   BuildTransforms();
   InitializePositions();
   InitializeCommandBuffer();
   SSC32Serial.write("#0 PO0 #1 PO-25 #2 PO-50 #4 PO0 #5 PO25 #6 PO50 #8 PO0 #9 PO0 #10 PO50 #16 PO0 #17 PO50 #18 PO0 #20 PO0 #21 PO-50 #22 PO-50 #24 PO0 #25 PO50 #26 PO0\r");
-  delay(5000);
+  //delay(5000);
   startTime = millis();
-  USBSerial.println("Robot Start");
+  //USBSerial.println("Robot Start");
 
 }
 
@@ -776,6 +784,17 @@ void loop()
     Ymove = 0.0F;
     Zrot = 20.0f;
   }*/
+  int val = analogRead(A0);
+  sensorDistanceV = ((float)val / 1024.0F) * 5.0;
+
+  sensorDistanceCM = 29.37 * exp(-0.783 * sensorDistanceV);
+  
+  if ( sensorDistanceV > 2.7)
+    sensorDistanceCM = 4;
+
+    if ( sensorDistanceV < 0.5)
+    sensorDistanceCM = 25;
+  
   GetBlueToothData();
   UpdateGait();
   UpdateLegs();
